@@ -1,0 +1,8 @@
+services:
+  scrapper:
+    build: .
+    env_file: .env
+    environment:
+      - CHROMEDRIVER_PATH=/usr/bin/chromedriver
+      - GOOGLE_CHROME_BIN=/usr/bin/chromium
+    restart: unless-stopped
