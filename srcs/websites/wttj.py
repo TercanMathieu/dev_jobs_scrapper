@@ -26,35 +26,63 @@ class WTTJ(Website):
             print("Looking for another WTTJ\'s page..")
 
             self.page_url = self.url.format(page)
+            print('test0')
             self._init_driver(self.page_url)
+            print('test2 - Driver initialized')
             page_data = self._get_chrome_page_data()
+            print(f'test3 - Page data retrieved, length: {len(page_data)} chars')
+            print('Creating BeautifulSoup object...')
             page_soup = BeautifulSoup(page_data, 'html.parser')
+            print('test1 - BeautifulSoup created successfully')
             all_jobs_raw = page_soup.find_all(
-                'div', attrs={'origin': 'jobs-home'})
-            if len(all_jobs_raw) == 0 or page >= 2:  # Scrap finished
+                'li', attrs={'data-testid': 'search-results-list-item-wrapper'})
+            print(f"Found {len(all_jobs_raw)} jobs")
+            if len(all_jobs_raw) == 0 or page >= 4:  # Scrap finished
                 return
 
             print("\nWTTJ\'s found jobs ({}) :".format(len(all_jobs_raw)))
             for jobs in all_jobs_raw:
+                try:
+                    # Find company name - look for span with company name class
+                    company_span = jobs.find('span', class_='sc-izXThL fFdRYJ sc-jkYWRr ewxOXb wui-text')
+                    if not company_span:
+                        print('Could not find company name, skipping job')
+                        continue
+                    job_company = company_span.text.strip()
 
-                job_company = jobs.find('span', attrs={'class': 'sc-fulCBj iGSCcH sc-1gjh7r6-2 bGtjEE wui-text'}).text
-                job_name = jobs.find('h4', attrs={'class':'sc-fulCBj kTERYV sc-1gjh7r6-1 dakUgn wui-text'}).text
-                job_thumbnail = jobs.find(
-                    'img', attrs={'alt': job_company})['src']
-                job_link = 'https://welcometothejungle.com' + \
-                    jobs.find('a', href=True)['href']
-                print('Job : ' + job_name)
-                print('Company : ' + job_company)
-                print(job_link)
-                print('\n')
+                    # Find job name - look for h2 title
+                    job_title_h2 = jobs.find('h2', class_='sc-izXThL fnsHVh wui-text')
+                    if not job_title_h2:
+                        print('Could not find job title, skipping job')
+                        continue
+                    job_name = job_title_h2.text.strip()
 
-                if not is_url_in_database(job_name + job_company):
-                    print("Found new job: {}".format(job_link))
-                    add_url_in_database(job_name + job_company)
-                    embed = create_embed(
-                        job_name, job_company, 'Paris', job_link, job_thumbnail)
-                    send_embed(embed, self)
-                    time.sleep(4)
+                    # Find job link
+                    job_link_a = jobs.find('a', href=True)
+                    if not job_link_a:
+                        print('Could not find job link, skipping job')
+                        continue
+                    job_link = 'https://welcometothejungle.com' + job_link_a['href']
+
+                    # Find thumbnail - first img tag
+                    job_thumbnail_img = jobs.find('img')
+                    job_thumbnail = job_thumbnail_img['src'] if job_thumbnail_img else ''
+
+                    print('Job : ' + job_name)
+                    print('Company : ' + job_company)
+                    print(job_link)
+                    print('\n')
+
+                    if not is_url_in_database(job_name + job_company):
+                        print("Found new job: {}".format(job_link))
+                        add_url_in_database(job_name + job_company)
+                        embed = create_embed(
+                            job_name, job_company, 'Paris', job_link, job_thumbnail)
+                        send_embed(embed, self)
+                        time.sleep(4)
+                except Exception as e:
+                    print(f"Error processing job: {e}")
+                    continue
 
             print('WTTJ\'s page #{} finished'.format(page))
             page += 1

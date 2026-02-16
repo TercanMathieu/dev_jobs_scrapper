@@ -58,22 +58,44 @@ class JobTeaser(Website):
                 return
             print("\nJob Teaser\'s found jobs ({}) :".format(len(all_jobs_raw)))
             for jobs in all_jobs_raw:
-                job_company = jobs.find('a').text
-                print('Company : ' + job_company)
-                job_name = jobs.find('p').text
-                print('Job : ' + job_name)
-                img_tag = jobs.find('img')
-                thumbnail = img_tag.get('src', None)
-                thumbnail = thumbnail.split("url=")
-                job_thumbnail = thumbnail[1]
-                job_link = 'https://www.jobteaser.com' + jobs.find('a')['href']
-                if not is_url_in_database(job_link):
-                    print("Found new job: {}".format(job_link))
-                    add_url_in_database(job_name + job_company)
-                    embed = create_embed(
-                        job_name, job_company, 'Paris', job_link, job_thumbnail = unquote(job_thumbnail))
-                    send_embed(embed, self)
-                    time.sleep(4)
+                try:
+                    # Find company name - first p tag with testid
+                    company_p = jobs.find('p', {'data-testid': 'jobad-card-company-name'})
+                    if not company_p:
+                        print('Could not find company name, skipping job')
+                        continue
+                    job_company = company_p.text.strip()
+                    print('Company : ' + job_company)
+
+                    # Find job title - link with class JobAdCard_link__LMtBN
+                    job_link_a = jobs.find('a', class_='JobAdCard_link__LMtBN')
+                    if not job_link_a:
+                        print('Could not find job link, skipping job')
+                        continue
+                    job_name = job_link_a.text.strip()
+                    print('Job : ' + job_name)
+                    job_link = 'https://www.jobteaser.com' + job_link_a['href']
+
+                    # Find thumbnail
+                    job_thumbnail = ''
+                    img_tag = jobs.find('img', {'data-testid': 'jobad-card-company-logo'})
+                    if img_tag and 'src' in img_tag.attrs:
+                        thumbnail_url = img_tag['src']
+                        if 'url=' in thumbnail_url:
+                            job_thumbnail = unquote(thumbnail_url.split("url=")[1].split("&")[0])
+                        else:
+                            job_thumbnail = thumbnail_url
+
+                    if not is_url_in_database(job_name + job_company):
+                        print("Found new job: {}".format(job_link))
+                        add_url_in_database(job_name + job_company)
+                        embed = create_embed(
+                            job_name, job_company, 'Paris', job_link, job_thumbnail)
+                        send_embed(embed, self)
+                        time.sleep(4)
+                except Exception as e:
+                    print(f"Error processing job: {e}")
+                    continue
 
             print('Job Teaser\'s page #{} finished'.format(page))
             page += 1

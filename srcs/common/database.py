@@ -4,7 +4,7 @@ from pymongo.server_api import ServerApi
 
 # client = pymongo.MongoClient(MONGO_URL)
 uri = MONGO_URL
-client = MongoClient(uri, server_api=ServerApi('1'))
+client = MongoClient(uri, server_api=ServerApi('1'), tlsAllowInvalidCertificates=True)
 
 def is_url_in_database(url):
 	"""
