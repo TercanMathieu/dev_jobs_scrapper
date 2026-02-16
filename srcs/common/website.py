@@ -23,9 +23,9 @@ class Website:
         Open the given url and returns the data on the page.
         """
     def _init_driver(self, url):
-        service = Service()
+        service = Service(executable_path=CHROMEDRIVER_PATH) if CHROMEDRIVER_PATH else Service()
         options = Options()
-        options.headless = True 
+        options.headless = True
         options.binary_location = GOOGLE_CHROME_BIN
         options.add_argument("--window-size=1920,1200")
         options.add_argument('--disable-gpu')
