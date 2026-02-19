@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛎️ Dev Jobs Scrapper - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛎️ Dev Jobs Scrapper</h1>
+            <p class="subtitle">Dashboard de monitoring</p>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-value" id="total-jobs">-</div>
+                <div class="stat-label">Total Jobs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🆕</div>
+                <div class="stat-value" id="jobs-24h">-</div>
+                <div class="stat-label">Jobs 24h</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🕐</div>
+                <div class="stat-value" id="last-update">-</div>
+                <div class="stat-label">Dernière MàJ</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Jobs List -->
+            <div class="panel jobs-panel">
+                <h2>📋 Derniers Jobs</h2>
+                <div class="jobs-list" id="jobs-list">
+                    <div class="loading">Chargement...</div>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="panel logs-panel">
+                <h2>📝 Logs en Direct</h2>
+                <div class="logs-container" id="logs-container">
+                    <div class="loading">Chargement...</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🔄 Auto-refresh toutes les 5 secondes</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
