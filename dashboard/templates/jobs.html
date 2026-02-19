@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📋 Jobs - Dev Jobs Scrapper</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='jobs.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="nav">
+                <a href="/" class="nav-link">🏠 Dashboard</a>
+                <a href="/jobs" class="nav-link active">📋 Jobs</a>
+            </nav>
+            <h1>📋 Tous les Jobs</h1>
+            <p class="subtitle">Filtrez et explorez les offres d'emploi</p>
+        </header>
+
+        <!-- Stats rapides -->
+        <div class="quick-stats" id="quick-stats">
+            <span class="stat-badge">📊 <span id="total-count">0</span> jobs</span>
+            <span class="stat-badge">🏢 <span id="company-count">0</span> entreprises</span>
+            <span class="stat-badge">💻 <span id="tech-count">0</span> technos</span>
+        </div>
+
+        <div class="main-layout">
+            <!-- Sidebar avec filtres -->
+            <aside class="filters-panel">
+                <h3>🔍 Filtres</h3>
+                
+                <!-- Recherche texte -->
+                <div class="filter-group">
+                    <label>Recherche</label>
+                    <input type="text" id="search-input" placeholder="Titre, entreprise, mots-clés...">
+                </div>
+
+                <!-- Technologies -->
+                <div class="filter-group">
+                    <label>💻 Technologies</label>
+                    <div class="tech-tags" id="tech-filters">
+                        <div class="loading-small">Chargement...</div>
+                    </div>
+                </div>
+
+                <!-- Seniorité -->
+                <div class="filter-group">
+                    <label>📊 Seniorité</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="seniority" value="junior">
+                            <span class="tag junior">Junior</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="seniority" value="mid">
+                            <span class="tag mid">Mid-level</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="seniority" value="senior">
+                            <span class="tag senior">Senior</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="seniority" value="lead">
+                            <span class="tag lead">Lead/Expert</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Type de contrat -->
+                <div class="filter-group">
+                    <label>📝 Type de contrat</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="contract" value="cdi">
+                            <span class="tag cdi">CDI</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="contract" value="cdd">
+                            <span class="tag cdd">CDD</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="contract" value="freelance">
+                            <span class="tag freelance">Freelance</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="contract" value="internship">
+                            <span class="tag internship">Stage</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="contract" value="apprenticeship">
+                            <span class="tag apprenticeship">Alternance</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Remote -->
+                <div class="filter-group">
+                    <label>🏠 Remote</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="remote-only" name="remote" value="true">
+                            <span class="tag remote">🌍 Uniquement remote</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Entreprise -->
+                <div class="filter-group">
+                    <label>🏢 Entreprise</label>
+                    <input type="text" id="company-filter" placeholder="Nom de l'entreprise...">
+                </div>
+
+                <!-- Boutons -->
+                <div class="filter-actions">
+                    <button id="apply-filters" class="btn btn-primary">Appliquer les filtres</button>
+                    <button id="reset-filters" class="btn btn-secondary">Réinitialiser</button>
+                </div>
+            </aside>
+
+            <!-- Liste des jobs -->
+            <main class="jobs-container">
+                <div class="jobs-header">
+                    <span id="results-count">Chargement...</span>
+                    <select id="per-page">
+                        <option value="25">25 par page</option>
+                        <option value="50" selected>50 par page</option>
+                        <option value="100">100 par page</option>
+                    </select>
+                </div>
+
+                <div id="jobs-list" class="jobs-grid">
+                    <div class="loading">Chargement des jobs...</div>
+                </div>
+
+                <!-- Pagination -->
+                <div id="pagination" class="pagination">
+                    <button id="prev-page" class="btn btn-icon">← Précédent</button>
+                    <span id="page-info">Page 1 / 1</span>
+                    <button id="next-page" class="btn btn-icon">Suivant →</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='jobs.js') }}"></script>
+</body>
+</html>

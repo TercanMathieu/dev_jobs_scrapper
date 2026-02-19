@@ -73,12 +73,15 @@ class WTTJ(Website):
                     print(job_link)
                     print('\n')
 
-                    if not is_url_in_database(job_name + job_company):
+                    if not is_url_in_database(job_link):
                         print("Found new job: {}".format(job_link))
-                        add_url_in_database(job_name + job_company)
+                        add_url_in_database(job_link)
                         embed = create_embed(
                             job_name, job_company, 'Paris', job_link, job_thumbnail)
-                        send_embed(embed, self, job_name, job_company)
+                        
+                        # Get full description for analysis
+                        description = f"{job_name} {job_company}"
+                        send_embed(embed, self, job_name, job_company, 'Paris', job_link, job_thumbnail, description)
                         time.sleep(4)
                 except Exception as e:
                     print(f"Error processing job: {e}")

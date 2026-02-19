@@ -1,16 +1,20 @@
 from discord_webhook import DiscordWebhook
 from common.constants import DISCORD_LOG_WEBHOOK
+from common.database import log_to_db
 import datetime
 
 
 def send_log(message, level="INFO"):
     """
-    Envoie un log vers le channel Discord dédié.
+    Envoie un log vers le channel Discord dédié ET vers MongoDB.
     
     Args:
         message: Le message à logger
         level: Niveau de log (INFO, SUCCESS, WARNING, ERROR)
     """
+    
+    # Log to MongoDB
+    log_to_db(level, message)
     
     if not DISCORD_LOG_WEBHOOK:
         print(f"[LOG - {level}] {message}")

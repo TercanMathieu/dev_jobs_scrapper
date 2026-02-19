@@ -1,0 +1,315 @@
+// Jobs Page App
+class JobsPage {
+    constructor() {
+        this.currentPage = 1;
+        this.perPage = 50;
+        this.totalPages = 1;
+        this.jobs = [];
+        this.filters = {
+            technologies: [],
+            seniority: [],
+            contract_type: [],
+            remote: false,
+            company: '',
+            search: ''
+        };
+        this.init();
+    }
+
+    init() {
+        this.loadFilterOptions();
+        this.loadJobs();
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        // Search input
+        document.getElementById('search-input')?.addEventListener('input', (e) => {
+            this.filters.search = e.target.value;
+            this.debounce(this.applyFilters.bind(this), 300)();
+        });
+
+        // Company filter
+        document.getElementById('company-filter')?.addEventListener('input', (e) => {
+            this.filters.company = e.target.value;
+            this.debounce(this.applyFilters.bind(this), 300)();
+        });
+
+        // Seniority checkboxes
+        document.querySelectorAll('input[name="seniority"]').forEach(cb => {
+            cb.addEventListener('change', () => this.updateSeniorityFilters());
+        });
+
+        // Contract checkboxes
+        document.querySelectorAll('input[name="contract"]').forEach(cb => {
+            cb.addEventListener('change', () => this.updateContractFilters());
+        });
+
+        // Remote checkbox
+        document.getElementById('remote-only')?.addEventListener('change', (e) => {
+            this.filters.remote = e.target.checked;
+            this.applyFilters();
+        });
+
+        // Per page selector
+        document.getElementById('per-page')?.addEventListener('change', (e) => {
+            this.perPage = parseInt(e.target.value);
+            this.currentPage = 1;
+            this.loadJobs();
+        });
+
+        // Apply filters button
+        document.getElementById('apply-filters')?.addEventListener('click', () => {
+            this.currentPage = 1;
+            this.loadJobs();
+        });
+
+        // Reset filters button
+        document.getElementById('reset-filters')?.addEventListener('click', () => {
+            this.resetFilters();
+        });
+
+        // Pagination
+        document.getElementById('prev-page')?.addEventListener('click', () => {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+                this.loadJobs();
+            }
+        });
+
+        document.getElementById('next-page')?.addEventListener('click', () => {
+            if (this.currentPage < this.totalPages) {
+                this.currentPage++;
+                this.loadJobs();
+            }
+        });
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    updateSeniorityFilters() {
+        const checkboxes = document.querySelectorAll('input[name="seniority"]:checked');
+        this.filters.seniority = Array.from(checkboxes).map(cb => cb.value);
+        this.applyFilters();
+    }
+
+    updateContractFilters() {
+        const checkboxes = document.querySelectorAll('input[name="contract"]:checked');
+        this.filters.contract_type = Array.from(checkboxes).map(cb => cb.value);
+        this.applyFilters();
+    }
+
+    applyFilters() {
+        this.currentPage = 1;
+        this.loadJobs();
+    }
+
+    resetFilters() {
+        this.filters = {
+            technologies: [],
+            seniority: [],
+            contract_type: [],
+            remote: false,
+            company: '',
+            search: ''
+        };
+        this.currentPage = 1;
+
+        // Reset UI
+        document.getElementById('search-input').value = '';
+        document.getElementById('company-filter').value = '';
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.tech-tag').forEach(tag => tag.classList.remove('selected'));
+
+        this.loadJobs();
+    }
+
+    async loadFilterOptions() {
+        try {
+            const response = await fetch('/api/filters/options');
+            const data = await response.json();
+            this.renderTechFilters(data.technologies);
+        } catch (error) {
+            console.error('Error loading filter options:', error);
+        }
+    }
+
+    renderTechFilters(technologies) {
+        const container = document.getElementById('tech-filters');
+        if (!container) return;
+
+        if (technologies.length === 0) {
+            container.innerHTML = '<div class="loading-small">Aucune technologie trouvée</div>';
+            return;
+        }
+
+        container.innerHTML = technologies.map(tech => `
+            <span class="tech-tag" data-tech="${tech}" onclick="jobsPage.toggleTech('${tech}')">${tech}</span>
+        `).join('');
+    }
+
+    toggleTech(tech) {
+        const index = this.filters.technologies.indexOf(tech);
+        const tag = document.querySelector(`[data-tech="${tech}"]`);
+
+        if (index === -1) {
+            this.filters.technologies.push(tech);
+            tag?.classList.add('selected');
+        } else {
+            this.filters.technologies.splice(index, 1);
+            tag?.classList.remove('selected');
+        }
+
+        this.applyFilters();
+    }
+
+    async loadJobs() {
+        try {
+            const params = new URLSearchParams({
+                page: this.currentPage,
+                per_page: this.perPage
+            });
+
+            if (this.filters.search) params.append('search', this.filters.search);
+            if (this.filters.company) params.append('company', this.filters.company);
+            if (this.filters.remote) params.append('remote', 'true');
+            
+            this.filters.technologies.forEach(t => params.append('technologies', t));
+            this.filters.seniority.forEach(s => params.append('seniority', s));
+            this.filters.contract_type.forEach(c => params.append('contract_type', c));
+
+            const response = await fetch(`/api/jobs?${params}`);
+            const data = await response.json();
+
+            this.jobs = data.jobs;
+            this.totalPages = data.total_pages;
+            this.currentPage = data.page;
+
+            this.renderJobs();
+            this.updatePagination();
+            this.updateStats(data.total);
+        } catch (error) {
+            console.error('Error loading jobs:', error);
+            document.getElementById('jobs-list').innerHTML = `
+                <div class="loading">❌ Erreur lors du chargement des jobs</div>
+            `;
+        }
+    }
+
+    renderJobs() {
+        const container = document.getElementById('jobs-list');
+        
+        if (this.jobs.length === 0) {
+            container.innerHTML = `
+                <div class="loading">
+                    🔍 Aucun job trouvé avec ces filtres<br>
+                    <small>Essayez de modifier vos critères de recherche</small>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.jobs.map(job => this.renderJobCard(job)).join('');
+    }
+
+    renderJobCard(job) {
+        const seniorityLabels = {
+            'junior': 'Junior',
+            'mid': 'Mid-level',
+            'senior': 'Senior',
+            'lead': 'Lead',
+            'expert': 'Expert',
+            'not_specified': 'Non spécifié'
+        };
+
+        const contractLabels = {
+            'cdi': 'CDI',
+            'cdd': 'CDD',
+            'freelance': 'Freelance',
+            'internship': 'Stage',
+            'apprenticeship': 'Alternance',
+            'not_specified': 'Non spécifié'
+        };
+
+        const techs = job.technologies?.slice(0, 8) || [];
+        const moreTechs = (job.technologies?.length || 0) > 8 ? `+${job.technologies.length - 8}` : '';
+
+        return `
+            <div class="job-card">
+                <div class="job-card-header">
+                    <img src="${job.thumbnail || 'https://via.placeholder.com/50'}" 
+                         alt="${job.company}" 
+                         class="job-thumbnail"
+                         onerror="this.src='https://via.placeholder.com/50'">
+                    <div class="job-title-section">
+                        <div class="job-title">${this.escapeHtml(job.name)}</div>
+                        <div class="job-company">🏢 ${this.escapeHtml(job.company)}</div>
+                        <div class="job-location">📍 ${this.escapeHtml(job.location)}</div>
+                    </div>
+                </div>
+
+                <div class="job-meta">
+                    ${job.seniority !== 'not_specified' ? `
+                        <span class="job-tag seniority-${job.seniority}">
+                            ${seniorityLabels[job.seniority]}
+                        </span>
+                    ` : ''}
+                    ${job.contract_type !== 'not_specified' ? `
+                        <span class="job-tag contract-${job.contract_type}">
+                            ${contractLabels[job.contract_type]}
+                        </span>
+                    ` : ''}
+                    ${job.remote ? '<span class="job-tag remote">🌍 Remote</span>' : ''}
+                </div>
+
+                ${techs.length > 0 ? `
+                    <div class="job-technologies">
+                        ${techs.map(t => `<span class="tech-pill">${t}</span>
+                        `).join('')}
+                        ${moreTechs ? `<span class="tech-pill">${moreTechs}</span>` : ''}
+                    </div>
+                ` : ''}
+
+                <div class="job-actions">
+                    <a href="${job.link}" target="_blank" class="btn-job btn-view">
+                        Voir l'offre →
+                    </a>
+                </div>
+            </div>
+        `;
+    }
+
+    updatePagination() {
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const pageInfo = document.getElementById('page-info');
+
+        if (prevBtn) prevBtn.disabled = this.currentPage <= 1;
+        if (nextBtn) nextBtn.disabled = this.currentPage >= this.totalPages;
+        if (pageInfo) pageInfo.textContent = `Page ${this.currentPage} / ${this.totalPages}`;
+    }
+
+    updateStats(total) {
+        document.getElementById('results-count').textContent = `${total} job${total > 1 ? 's' : ''} trouvé${total > 1 ? 's' : ''}`;
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// Initialize
+const jobsPage = new JobsPage();
