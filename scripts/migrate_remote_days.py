@@ -5,20 +5,21 @@ Script de migration pour mettre à jour les jobs existants avec les nouvelles in
 
 import os
 import sys
-from pymongo import MongoClient
+import time
 from datetime import datetime
+from pymongo import MongoClient
+from bs4 import BeautifulSoup
 
 # Import des fonctions d'analyse
 sys.path.insert(0, '/app/srcs')
-from common.job_analyzer import extract_remote_days
-from common.database import fetch_job_page
+from common.job_analyzer import extract_remote_days, fetch_job_page
 
 MONGO_URL = os.getenv('MONGO_URL', 'mongodb://mongodb:27017/')
 
 def migrate_existing_jobs():
     """
     Met à jour tous les jobs existants pour ajouter le champ remote_days.
-"""
+    """
     client = MongoClient(MONGO_URL)
     db = client.jobs_database
     jobs_collection = db.jobs_collection
@@ -83,7 +84,6 @@ def migrate_existing_jobs():
                 continue
             
             # Parser le HTML et extraire le texte
-            from bs4 import BeautifulSoup
             soup = BeautifulSoup(html_content, 'html.parser')
             
             # Supprimer scripts et styles
@@ -121,7 +121,6 @@ def migrate_existing_jobs():
             # Petite pause pour ne pas surcharger
             if i % 10 == 0:
                 print(f"\n⏳ Pause de 2 secondes...")
-                import time
                 time.sleep(2)
                 
         except Exception as e:
