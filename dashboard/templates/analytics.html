@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Analytics - Dev Jobs Scrapper</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='jobs.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='analytics.css') }}">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="nav">
+                <a href="/" class="nav-link">🏠 Dashboard</a>
+                <a href="/jobs" class="nav-link">📋 Jobs</a>
+                <a href="/analytics" class="nav-link active">📊 Analytics</a>
+            </nav>
+            <h1>📊 Analyse du Marché</h1>
+            <p class="subtitle">Insights et tendances du marché de l'emploi tech</p>
+        </header>
+
+        <!-- Quick Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">💻</div>
+                <div class="stat-value" id="total-techs">-</div>
+                <div class="stat-label">Technologies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-value" id="top-tech">-</div>
+                <div class="stat-label">Tech la plus demandée</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🌍</div>
+                <div class="stat-value" id="remote-percent">-</div>
+                <div class="stat-label">Offres Remote</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🏢</div>
+                <div class="stat-value" id="top-company">-</div>
+                <div class="stat-label">Top Recruteur</div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <!-- Top Technologies -->
+            <div class="chart-container">
+                <h3>🔥 Top 20 Technologies Demandées</h3>
+                <canvas id="techChart"></canvas>
+            </div>
+
+            <!-- Timeline -->
+            <div class="chart-container full-width">
+                <h3>📅 Volume d'Offres (30 derniers jours)</h3>
+                <canvas id="timelineChart"></canvas>
+            </div>
+
+            <!-- Seniority Distribution -->
+            <div class="chart-container">
+                <h3>📊 Répartition par Seniorité</h3>
+                <canvas id="seniorityChart"></canvas>
+            </div>
+
+            <!-- Contract Types -->
+            <div class="chart-container">
+                <h3>📝 Types de Contrat</h3>
+                <canvas id="contractChart"></canvas>
+            </div>
+
+            <!-- Remote vs On-site -->
+            <div class="chart-container">
+                <h3>🏠 Remote vs Sur-site</h3>
+                <canvas id="remoteChart"></canvas>
+            </div>
+
+            <!-- Top Companies -->
+            <div class="chart-container">
+                <h3>🏢 Top Entreprises qui Recrutent</h3>
+                <canvas id="companiesChart"></canvas>
+            </div>
+
+            <!-- Tech by Seniority -->
+            <div class="chart-container full-width">
+                <h3>💻 Technologies par Niveau de Seniorité</h3>
+                <div class="chart-controls">
+                    <button class="btn btn-small active" onclick="showTechBySeniority('junior')">Junior</button>
+                    <button class="btn btn-small" onclick="showTechBySeniority('mid')">Mid</button>
+                    <button class="btn btn-small" onclick="showTechBySeniority('senior')">Senior</button>
+                    <button class="btn btn-small" onclick="showTechBySeniority('lead')">Lead</button>
+                </div>
+                <canvas id="techBySeniorityChart"></canvas>
+            </div>
+
+            <!-- Tech Correlation -->
+            <div class="chart-container full-width">
+                <h3>🔗 Technologies souvent demandées ensemble</h3>
+                <div id="correlationTable"></div>
+            </div>
+        </div>
+
+        <footer>
+            <p>📊 Analytics mis à jour en temps réel</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='analytics.js') }}"></script>
+</body>
+</html>

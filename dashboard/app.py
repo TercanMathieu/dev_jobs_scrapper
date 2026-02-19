@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from pymongo import MongoClient
 from datetime import datetime, timedelta
+from collections import Counter
 import os
 from dotenv import load_dotenv
 
@@ -23,17 +24,17 @@ def index():
 def jobs_page():
     return render_template('jobs.html')
 
+@app.route('/analytics')
+def analytics_page():
+    return render_template('analytics.html')
+
 @app.route('/api/debug')
 def debug_data():
     """Debug endpoint to check data"""
     try:
-        # Count documents
         total = jobs_collection.count_documents({})
-        
-        # Get sample documents
         sample = list(jobs_collection.find().limit(3))
         
-        # Convert ObjectId to string for JSON serialization
         for doc in sample:
             doc['_id'] = str(doc['_id'])
             if 'date_scraped' in doc:
@@ -49,43 +50,34 @@ def debug_data():
             'sample_documents': sample
         })
     except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'mongo_url': MONGO_URL
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/stats')
 def get_stats():
     """Get dashboard stats"""
     total_jobs = jobs_collection.count_documents({})
     
-    # Jobs des dernières 24h
     last_24h = datetime.now() - timedelta(hours=24)
     jobs_24h = jobs_collection.count_documents({'date_scraped': {'$gte': last_24h}})
     
-    # Dernière mise à jour
     last_job = jobs_collection.find_one(sort=[('date_scraped', -1)])
     last_update = last_job['date_scraped'].strftime('%Y-%m-%d %H:%M:%S') if last_job and 'date_scraped' in last_job else 'Jamais'
     
-    # Stats avancées
     all_techs = jobs_collection.distinct('technologies')
     companies = jobs_collection.distinct('company')
     
-    # Répartition par seniorité
     seniority_stats = {}
     for level in ['junior', 'mid', 'senior', 'lead', 'expert', 'not_specified']:
         count = jobs_collection.count_documents({'seniority': level})
         if count > 0:
             seniority_stats[level] = count
     
-    # Répartition par type de contrat
     contract_stats = {}
     for ctype in ['cdi', 'cdd', 'freelance', 'internship', 'apprenticeship', 'not_specified']:
         count = jobs_collection.count_documents({'contract_type': ctype})
         if count > 0:
             contract_stats[ctype] = count
     
-    # Jobs remote
     remote_count = jobs_collection.count_documents({'remote': True})
     
     return jsonify({
@@ -99,43 +91,188 @@ def get_stats():
         'remote_jobs': remote_count
     })
 
+@app.route('/api/analytics/technologies')
+def get_tech_analytics():
+    """Get technology demand analytics"""
+    # Get all jobs
+    jobs = list(jobs_collection.find({}, {'technologies': 1}))
+    
+    # Count all technologies
+    all_techs = []
+    for job in jobs:
+        all_techs.extend(job.get('technologies', []))
+    
+    tech_counts = Counter(all_techs)
+    top_techs = tech_counts.most_common(20)
+    
+    return jsonify({
+        'labels': [tech[0] for tech in top_techs],
+        'data': [tech[1] for tech in top_techs]
+    })
+
+@app.route('/api/analytics/tech-by-seniority')
+def get_tech_by_seniority():
+    """Get technology demand by seniority level"""
+    seniority_levels = ['junior', 'mid', 'senior', 'lead']
+    tech_by_level = {}
+    
+    for level in seniority_levels:
+        jobs = list(jobs_collection.find({'seniority': level}, {'technologies': 1}))
+        all_techs = []
+        for job in jobs:
+            all_techs.extend(job.get('technologies', []))
+        
+        tech_counts = Counter(all_techs)
+        tech_by_level[level] = dict(tech_counts.most_common(10))
+    
+    return jsonify(tech_by_level)
+
+@app.route('/api/analytics/seniority')
+def get_seniority_distribution():
+    """Get seniority distribution"""
+    seniority_counts = {}
+    for level in ['junior', 'mid', 'senior', 'lead', 'expert']:
+        count = jobs_collection.count_documents({'seniority': level})
+        if count > 0:
+            seniority_counts[level] = count
+    
+    return jsonify(seniority_counts)
+
+@app.route('/api/analytics/contracts')
+def get_contract_distribution():
+    """Get contract type distribution"""
+    contract_counts = {}
+    for ctype in ['cdi', 'cdd', 'freelance', 'internship', 'apprenticeship']:
+        count = jobs_collection.count_documents({'contract_type': ctype})
+        if count > 0:
+            contract_counts[ctype] = count
+    
+    return jsonify(contract_counts)
+
+@app.route('/api/analytics/remote')
+def get_remote_stats():
+    """Get remote vs on-site stats"""
+    remote_count = jobs_collection.count_documents({'remote': True})
+    onsite_count = jobs_collection.count_documents({'remote': False})
+    unknown_count = jobs_collection.count_documents({'remote': {'$exists': False}})
+    
+    return jsonify({
+        'remote': remote_count,
+        'onsite': onsite_count,
+        'unknown': unknown_count
+    })
+
+@app.route('/api/analytics/top-companies')
+def get_top_companies():
+    """Get top hiring companies"""
+    limit = int(request.args.get('limit', 15))
+    
+    pipeline = [
+        {'$group': {'_id': '$company', 'count': {'$sum': 1}}},
+        {'$sort': {'count': -1}},
+        {'$limit': limit}
+    ]
+    
+    results = list(jobs_collection.aggregate(pipeline))
+    
+    return jsonify({
+        'companies': [r['_id'] for r in results if r['_id']],
+        'counts': [r['count'] for r in results if r['_id']]
+    })
+
+@app.route('/api/analytics/timeline')
+def get_jobs_timeline():
+    """Get jobs posted over time (last 30 days)"""
+    days = int(request.args.get('days', 30))
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    pipeline = [
+        {
+            '$match': {
+                'date_scraped': {'$gte': start_date, '$lte': end_date}
+            }
+        },
+        {
+            '$group': {
+                '_id': {'$dateToString': {'format': '%Y-%m-%d', 'date': '$date_scraped'}},
+                'count': {'$sum': 1}
+            }
+        },
+        {'$sort': {'_id': 1}}
+    ]
+    
+    results = list(jobs_collection.aggregate(pipeline))
+    
+    # Fill missing dates with 0
+    date_counts = {r['_id']: r['count'] for r in results}
+    all_dates = []
+    all_counts = []
+    
+    current = start_date
+    while current <= end_date:
+        date_str = current.strftime('%Y-%m-%d')
+        all_dates.append(date_str)
+        all_counts.append(date_counts.get(date_str, 0))
+        current += timedelta(days=1)
+    
+    return jsonify({
+        'dates': all_dates,
+        'counts': all_counts
+    })
+
+@app.route('/api/analytics/tech-correlation')
+def get_tech_correlation():
+    """Get which technologies are often requested together"""
+    # Get pairs of technologies that appear together
+    jobs = list(jobs_collection.find({'technologies': {'$exists': True, '$ne': []}}))
+    
+    from itertools import combinations
+    
+    pair_counts = Counter()
+    for job in jobs:
+        techs = job.get('technologies', [])
+        if len(techs) >= 2:
+            for pair in combinations(sorted(techs), 2):
+                pair_counts[pair] += 1
+    
+    # Get top pairs
+    top_pairs = pair_counts.most_common(15)
+    
+    return jsonify({
+        'pairs': [{'tech1': p[0][0], 'tech2': p[0][1], 'count': p[1]} for p in top_pairs]
+    })
+
 @app.route('/api/jobs')
 def get_jobs():
     """Get jobs with advanced filters"""
-    # Pagination
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 50))
     skip = (page - 1) * per_page
     
-    # Build query from filters
     query = {}
     
-    # Technologies filter (AND logic - must have all selected)
     techs = request.args.getlist('technologies')
     if techs:
         query['technologies'] = {'$all': [t.lower() for t in techs]}
     
-    # Seniority filter
     seniority = request.args.getlist('seniority')
     if seniority:
         query['seniority'] = {'$in': [s.lower() for s in seniority]}
     
-    # Contract type filter
     contracts = request.args.getlist('contract_type')
     if contracts:
         query['contract_type'] = {'$in': [c.lower() for c in contracts]}
     
-    # Remote filter
     remote = request.args.get('remote')
     if remote is not None:
         query['remote'] = remote.lower() == 'true'
     
-    # Company filter
     company = request.args.get('company')
     if company:
         query['company'] = {'$regex': company, '$options': 'i'}
     
-    # Search text
     search = request.args.get('search')
     if search:
         query['$or'] = [
@@ -144,21 +281,7 @@ def get_jobs():
             {'company': {'$regex': search, '$options': 'i'}}
         ]
     
-    # Date range
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
-    if date_from or date_to:
-        date_query = {}
-        if date_from:
-            date_query['$gte'] = datetime.fromisoformat(date_from)
-        if date_to:
-            date_query['$lte'] = datetime.fromisoformat(date_to)
-        query['date_scraped'] = date_query
-    
-    # Get total count for pagination
     total = jobs_collection.count_documents(query)
-    
-    # Get jobs
     jobs = list(jobs_collection.find(query).sort('date_scraped', -1).skip(skip).limit(per_page))
     
     result = []
