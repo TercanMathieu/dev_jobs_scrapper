@@ -1,8 +1,36 @@
 services:
+  mongodb:
+    image: mongo:7.0
+    container_name: dev_jobs_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: job_scrapper
+
   scrapper:
     build: .
     env_file: .env
     environment:
       - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - GOOGLE_CHROME_BIN=/usr/bin/chromium
+      - MONGO_URL=mongodb://mongodb:27017/
     restart: unless-stopped
+    depends_on:
+      - mongodb
+
+  dashboard:
+    build: ./dashboard
+    container_name: dev_jobs_dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+
+volumes:
+  mongo_data:
