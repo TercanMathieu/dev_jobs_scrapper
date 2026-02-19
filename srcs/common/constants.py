@@ -10,5 +10,6 @@ They are loaded from a .env file.
 
 MONGO_URL = os.getenv('MONGO_URL')
 DISCORD_WEBHOOK = os.getenv("WEBHOOK_URL")
+DISCORD_LOG_WEBHOOK = os.getenv("LOG_WEBHOOK_URL")  # Webhook pour les logs
 CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
 GOOGLE_CHROME_BIN = os.getenv("GOOGLE_CHROME_BIN", "/usr/bin/chromium")

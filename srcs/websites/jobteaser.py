@@ -91,7 +91,7 @@ class JobTeaser(Website):
                         add_url_in_database(job_name + job_company)
                         embed = create_embed(
                             job_name, job_company, 'Paris', job_link, job_thumbnail)
-                        send_embed(embed, self)
+                        send_embed(embed, self, job_name, job_company)
                         time.sleep(4)
                 except Exception as e:
                     print(f"Error processing job: {e}")
