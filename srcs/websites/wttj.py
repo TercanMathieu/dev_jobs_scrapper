@@ -18,29 +18,96 @@ class WTTJ(Website):
             True,
         )
 
-    def _extract_company_name(self, job_element):
-        """Extract company name with multiple fallback selectors"""
-        # Try different selectors for company name
-        selectors = [
-            ('span', {'class': lambda x: x and 'company' in x.lower() if x else False}),
-            ('span', {'data-testid': lambda x: 'company' in x.lower() if x else False}),
-            ('p', {'class': lambda x: x and 'company' in x.lower() if x else False}),
-            ('div', {'class': lambda x: x and 'company' in x.lower() if x else False}),
-            # Look for any text that might be company name before job title
-            ('span', {}),
+    def _is_valid_company_name(self, text):
+        """Check if text is a valid company name (not a phrase or generic text)"""
+        if not text or len(text) < 2 or len(text) > 60:
+            return False
+        
+        # List of invalid patterns/phrases that are NOT company names
+        invalid_patterns = [
+            'recrutement', 'recrute', 'recruiting', 'hiring',
+            'active', 'actif', 'en cours', 'in progress',
+            'publié', 'published', 'posté', 'posted',
+            'il y a', 'ago', 'days', 'jours',
+            'voir', 'view', 'en savoir', 'more',
+            ' CDI', ' CDD', ' stage', ' alternance',
+            'temps plein', 'temps partiel', 'full time', 'part time',
+            'télétravail', 'remote', 'hybride', 'hybrid',
+            'paris', 'lyon', 'marseille', 'bordeaux', 'lille',
+            'france', 'europe',
         ]
         
-        for tag, attrs in selectors:
-            elements = job_element.find_all(tag, attrs)
-            for elem in elements:
-                text = elem.text.strip()
-                # Company names are usually short (2-50 chars)
-                if 2 < len(text) < 50 and text.isupper() == False:
-                    # Avoid job titles which are usually longer
-                    if len(text.split()) <= 6:
+        text_lower = text.lower()
+        for pattern in invalid_patterns:
+            if pattern in text_lower:
+                return False
+        
+        # Check if it's all uppercase (often job titles or labels)
+        if text.isupper() and len(text) > 10:
+            return False
+            
+        # Check if it contains too many numbers (dates, codes)
+        digit_count = sum(c.isdigit() for c in text)
+        if digit_count > 3:
+            return False
+        
+        return True
+
+    def _extract_company_name(self, job_element):
+        """Extract company name with multiple fallback selectors and validation"""
+        
+        # First try: Look for specific company attributes
+        company_elem = job_element.find(attrs={'data-testid': lambda x: x and 'company' in str(x).lower()})
+        if company_elem:
+            text = company_elem.get_text(strip=True)
+            if self._is_valid_company_name(text):
+                return text
+        
+        # Second try: Look for aria-label containing company info
+        for elem in job_element.find_all(attrs={'aria-label': True}):
+            aria = elem['aria-label']
+            if 'chez' in aria.lower() or 'at' in aria.lower():
+                # Extract company name from aria-label like "Développeur chez Company"
+                parts = aria.split('chez') if 'chez' in aria else aria.split('at')
+                if len(parts) > 1:
+                    company = parts[-1].strip()
+                    if self._is_valid_company_name(company):
+                        return company
+        
+        # Third try: Look for specific CSS patterns
+        company_patterns = [
+            'sc-izXThL',  # Common WTTJ class pattern
+            'wui-text',
+            'company',
+            'employer',
+        ]
+        
+        for pattern in company_patterns:
+            elems = job_element.find_all(class_=lambda x: x and pattern in str(x))
+            for elem in elems:
+                text = elem.get_text(strip=True)
+                # Company names on WTTJ are typically:
+                # - Short (2-40 chars)
+                # - Title case or mixed case (not all caps)
+                # - Not containing job-related keywords
+                if self._is_valid_company_name(text):
+                    # Additional check: should be shorter than typical job titles
+                    if len(text) < 35 and len(text.split()) <= 5:
                         return text
         
-        return "Unknown Company"
+        # Fourth try: Look for any span or div with short text that could be company
+        for tag in ['span', 'div', 'p']:
+            elems = job_element.find_all(tag)
+            for elem in elems:
+                text = elem.get_text(strip=True)
+                # Very strict validation for fallback
+                if (2 < len(text) < 30 and 
+                    len(text.split()) <= 4 and
+                    text[0].isupper() and
+                    self._is_valid_company_name(text)):
+                    return text
+        
+        return "Entreprise non spécifiée"
 
     def _extract_job_title(self, job_element):
         """Extract job title with multiple fallback selectors"""

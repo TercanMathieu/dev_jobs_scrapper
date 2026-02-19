@@ -156,19 +156,71 @@ class JobTeaser(Website):
         print(f"Job Teaser scraping complete. Total new jobs: {total_jobs_found}")
         print(f"{'='*50}")
 
+    def _is_valid_company_name(self, text):
+        """Check if text is a valid company name (not a phrase or generic text)"""
+        if not text or len(text) < 2 or len(text) > 60:
+            return False
+        
+        invalid_patterns = [
+            'recrutement', 'recrute', 'recruiting', 'hiring',
+            'active', 'actif', 'en cours', 'in progress',
+            'publié', 'published', 'posté', 'posted',
+            'il y a', 'ago', 'days', 'jours',
+            'voir', 'view', 'en savoir', 'more',
+            ' CDI', ' CDD', ' stage', ' alternance',
+            'temps plein', 'temps partiel', 'full time', 'part time',
+            'télétravail', 'remote', 'hybride', 'hybrid',
+            'paris', 'lyon', 'marseille', 'bordeaux', 'lille',
+            'france', 'europe',
+        ]
+        
+        text_lower = text.lower()
+        for pattern in invalid_patterns:
+            if pattern in text_lower:
+                return False
+        
+        if text.isupper() and len(text) > 10:
+            return False
+            
+        digit_count = sum(c.isdigit() for c in text)
+        if digit_count > 3:
+            return False
+        
+        return True
+
     def _extract_company(self, job_element):
-        """Extract company name with fallback selectors"""
+        """Extract company name with fallback selectors and validation"""
+        # Try specific testid first
+        company_elem = job_element.find('p', {'data-testid': 'jobad-card-company-name'})
+        if company_elem:
+            text = company_elem.get_text(strip=True)
+            if self._is_valid_company_name(text):
+                return text
+        
+        # Try other selectors
         selectors = [
-            ('p', {'data-testid': 'jobad-card-company-name'}),
             ('span', {'class': lambda x: x and 'company' in x.lower() if x else False}),
             ('div', {'class': lambda x: x and 'company' in x.lower() if x else False}),
+            ('span', {'class': lambda x: x and 'name' in x.lower() if x else False}),
         ]
         
         for tag, attrs in selectors:
             elem = job_element.find(tag, attrs)
             if elem:
-                return elem.text.strip()
-        return None
+                text = elem.get_text(strip=True)
+                if self._is_valid_company_name(text):
+                    return text
+        
+        # Fallback: look for short text in the card
+        for elem in job_element.find_all(['span', 'p', 'div']):
+            text = elem.get_text(strip=True)
+            if (2 < len(text) < 35 and 
+                len(text.split()) <= 4 and
+                text[0].isupper() and
+                self._is_valid_company_name(text)):
+                return text
+        
+        return "Entreprise non spécifiée"
 
     def _extract_job_title_and_link(self, job_element):
         """Extract job title and link with fallback selectors"""

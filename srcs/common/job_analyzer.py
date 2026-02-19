@@ -24,6 +24,28 @@ def fetch_job_page(url, timeout=10):
         print(f"Error fetching job page {url}: {e}")
         return None
 
+def clean_company_name(name):
+    """
+    Nettoie le nom de l'entreprise en supprimant les phrases invalides.
+    """
+    if not name:
+        return "Entreprise non spécifiée"
+    
+    invalid_patterns = [
+        'recrutement', 'recrute', 'recruiting', 'hiring',
+        'active', 'actif', 'en cours', 'in progress',
+        'publié', 'published', 'posté', 'posted',
+        'il y a', 'ago', 'days', 'jours',
+        'voir', 'view', 'en savoir', 'more',
+    ]
+    
+    name_lower = name.lower()
+    for pattern in invalid_patterns:
+        if pattern in name_lower:
+            return "Entreprise non spécifiée"
+    
+    return name.strip()
+
 def extract_experience_years(text):
     """
     Extrait les années d'expérience requises du texte.
@@ -268,12 +290,15 @@ def analyze_job_page(url, basic_info=None):
     # Récupérer le contenu de la page
     html_content = fetch_job_page(url)
     
+    # Nettoyer le nom de l'entreprise
+    company_name = clean_company_name(basic_info.get('company', '') if basic_info else '')
+    
     if html_content is None:
-        # Si on ne peut pas scraper, utiliser les infos de base
+        # Si on ne peut pas scraper, utiliser les infos de base nettoyées
         return {
             'url': url,
             'name': basic_info.get('name', '') if basic_info else '',
-            'company': basic_info.get('company', '') if basic_info else '',
+            'company': company_name,
             'location': basic_info.get('location', 'Paris') if basic_info else 'Paris',
             'thumbnail': basic_info.get('thumbnail', '') if basic_info else '',
             'technologies': [],
@@ -324,7 +349,7 @@ def analyze_job_page(url, basic_info=None):
     return {
         'url': url,
         'name': basic_info.get('name', '') if basic_info else '',
-        'company': basic_info.get('company', '') if basic_info else '',
+        'company': company_name,  # Nom nettoyé
         'location': basic_info.get('location', 'Paris') if basic_info else 'Paris',
         'thumbnail': basic_info.get('thumbnail', '') if basic_info else '',
         'technologies': technologies,
