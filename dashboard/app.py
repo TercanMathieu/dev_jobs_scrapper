@@ -23,6 +23,37 @@ def index():
 def jobs_page():
     return render_template('jobs.html')
 
+@app.route('/api/debug')
+def debug_data():
+    """Debug endpoint to check data"""
+    try:
+        # Count documents
+        total = jobs_collection.count_documents({})
+        
+        # Get sample documents
+        sample = list(jobs_collection.find().limit(3))
+        
+        # Convert ObjectId to string for JSON serialization
+        for doc in sample:
+            doc['_id'] = str(doc['_id'])
+            if 'date_scraped' in doc:
+                doc['date_scraped'] = doc['date_scraped'].isoformat()
+            if 'date_added' in doc:
+                doc['date_added'] = doc['date_added'].isoformat()
+        
+        return jsonify({
+            'mongo_url': MONGO_URL,
+            'database_name': db.name,
+            'collection_name': jobs_collection.name,
+            'total_documents': total,
+            'sample_documents': sample
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'mongo_url': MONGO_URL
+        }), 500
+
 @app.route('/api/stats')
 def get_stats():
     """Get dashboard stats"""

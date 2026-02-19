@@ -24,12 +24,16 @@ class JobTeaser(Website):
             )
 
     def _click_agree_button(self):
+        """Click the cookie consent button if present"""
         try:
+            # Attendre un peu que la bannière apparaisse
+            time.sleep(1)
             agree_button = self.driver.find_element(By.XPATH,'//*[@id="didomi-notice-agree-button"]')
             agree_button.click()
-            print("Clicked on 'Good for me!' button.")
-        except Exception as e:
-            print("Error clicking 'Good for me!' button:", str(e))
+            print("Clicked on cookie consent button.")
+        except Exception:
+            # Le bouton n'est pas toujours présent, c'est OK
+            pass
 
 
     def scrap(self):
