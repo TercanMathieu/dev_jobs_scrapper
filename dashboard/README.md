@@ -58,6 +58,30 @@ dashboard/
 └── README.md              # Ce fichier
 ```
 
+## 🔄 Migration des données existantes
+
+### Mise à jour des jobs existants (télétravail détaillé)
+
+Si tu as déployé une nouvelle version avec le filtre de télétravail détaillé, 
+tu dois migrer les jobs existants pour qu'ils aient les nouvelles informations.
+
+```bash
+# Méthode 1: Script automatisé
+cd /chemin/vers/dev_jobs_scrapper
+./scripts/run_migration.sh
+
+# Méthode 2: Manuellement
+docker compose exec scrapper python scripts/migrate_remote_days.py
+```
+
+Ce script va :
+1. Scanner tous les jobs existants
+2. Scraper à nouveau les fiches de poste
+3. Extraire le nombre de jours de télétravail
+4. Mettre à jour la base de données
+
+**Note:** Le script fait une pause de 2 secondes tous les 10 jobs pour éviter de surcharger les serveurs.
+
 ## 🐳 Commandes utiles
 
 ```bash
