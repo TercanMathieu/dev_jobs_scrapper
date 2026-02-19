@@ -269,6 +269,18 @@ def get_jobs():
     if remote is not None:
         query['remote'] = remote.lower() == 'true'
     
+    # Remote days filter (1, 2, 3, 4, 'full', 'hybrid')
+    remote_days = request.args.getlist('remote_days')
+    if remote_days:
+        # Convert string numbers to int, keep 'full' and 'hybrid' as strings
+        days_values = []
+        for day in remote_days:
+            if day.isdigit():
+                days_values.append(int(day))
+            else:
+                days_values.append(day)
+        query['remote_days'] = {'$in': days_values}
+    
     company = request.args.get('company')
     if company:
         query['company'] = {'$regex': company, '$options': 'i'}
@@ -297,6 +309,7 @@ def get_jobs():
             'seniority': job.get('seniority', 'not_specified'),
             'contract_type': job.get('contract_type', 'not_specified'),
             'remote': job.get('remote', False),
+            'remote_days': job.get('remote_days'),
             'source': job.get('source', 'Unknown'),
             'date': job.get('date_scraped', datetime.now()).strftime('%Y-%m-%d %H:%M:%S')
         })
@@ -317,7 +330,15 @@ def get_filter_options():
         'companies': sorted(jobs_collection.distinct('company')),
         'seniority_levels': ['junior', 'mid', 'senior', 'lead', 'expert'],
         'contract_types': ['cdi', 'cdd', 'freelance', 'internship', 'apprenticeship'],
-        'locations': sorted(jobs_collection.distinct('location'))
+        'locations': sorted(jobs_collection.distinct('location')),
+        'remote_options': [
+            {'value': 'full', 'label': 'Full Remote (100%)'},
+            {'value': '4', 'label': '4 jours / semaine'},
+            {'value': '3', 'label': '3 jours / semaine'},
+            {'value': '2', 'label': '2 jours / semaine'},
+            {'value': '1', 'label': '1 jour / semaine'},
+            {'value': 'hybrid', 'label': 'Hybride (non précisé)'},
+        ]
     })
 
 @app.route('/api/logs')

@@ -276,16 +276,65 @@ def extract_technologies_from_text(text):
     
     return sorted(found_techs)
 
+def extract_remote_days(text):
+    """
+    Extrait le nombre de jours de télétravail autorisés.
+    Retourne: None (pas de remote), 'full' (100%), 'hybrid' (partiel), ou un nombre de jours (1-4)
+    """
+    if not text:
+        return None
+    
+    text_lower = text.lower()
+    
+    # Full remote patterns
+    full_remote_patterns = [
+        'full remote', '100% remote', 'remote 100%', 'fullremote',
+        'full télétravail', '100% télétravail', 'télétravail 100%',
+        'full teletravail', '100% teletravail',
+        'remote first', 'remote-first', 'fully remote',
+        'no office', 'pas de bureau', 'à domicile', 'à distance',
+    ]
+    
+    for pattern in full_remote_patterns:
+        if pattern in text_lower:
+            return 'full'
+    
+    # Hybrid patterns with days
+    hybrid_patterns = [
+        r'(\d+)\s*(?:days?|jours?)?\s*(?:per\s*week|par\s*semaine)?\s*(?:remote|télétravail|teletravail)',
+        r'remote\s*(?:\s*-\s*)?(\d+)\s*(?:days?|jours?)',
+        r'télétravail\s*(?:\s*-\s*)?(\d+)\s*(?:jours?|days?)',
+        r'(\d+)\s*(?:jours?|days?)?\s*(?:de\s*)?(?:télétravail|teletravail|remote)',
+        r'(\d+)j?\s*/\s*\d+',
+        r'télétravail\s*:\s*(\d+)\s*jours?',
+        r'remote\s*:\s*(\d+)\s*(?:days?|jours?)',
+        r'(\d+)\s*(?:jours?|days?)\s*(?:par\s*semaine|per\s*week)?\s*(?:en\s*)?(?:télétravail|teletravail|remote)',
+    ]
+    
+    for pattern in hybrid_patterns:
+        matches = re.findall(pattern, text_lower)
+        for match in matches:
+            try:
+                days = int(match)
+                if 1 <= days <= 4:
+                    return days
+            except:
+                continue
+    
+    # Hybrid générique
+    hybrid_keywords = ['hybride', 'hybrid', 'flexible', 'partiel', 'partial', 
+                       'télétravail possible', 'remote possible', 'télétravail ouvert',
+                       'remote friendly', 'remote-friendly', 'télétravail occasionnel']
+    
+    for kw in hybrid_keywords:
+        if kw in text_lower:
+            return 'hybrid'
+    
+    return None
+
 def analyze_job_page(url, basic_info=None):
     """
     Analyse complète d'une fiche de poste.
-    
-    Args:
-        url: Lien vers la fiche de poste
-        basic_info: Dict avec les infos de base (name, company, etc.)
-    
-    Returns:
-        Dict avec toutes les informations extraites
     """
     # Récupérer le contenu de la page
     html_content = fetch_job_page(url)
@@ -306,6 +355,7 @@ def analyze_job_page(url, basic_info=None):
             'years_experience': None,
             'contract_type': 'not_specified',
             'remote': False,
+            'remote_days': None,
             'description': '',
             'salary': None,
         }
@@ -314,14 +364,11 @@ def analyze_job_page(url, basic_info=None):
     soup = BeautifulSoup(html_content, 'html.parser')
     
     # Extraire tout le texte visible
-    # Supprimer les scripts et styles
     for script in soup(['script', 'style', 'nav', 'footer', 'header']):
         script.decompose()
     
     # Récupérer le texte
     text = soup.get_text(separator=' ', strip=True)
-    
-    # Nettoyer le texte
     text = re.sub(r'\s+', ' ', text)
     
     # Extraire les informations
@@ -343,13 +390,14 @@ def analyze_job_page(url, basic_info=None):
     elif any(x in text_lower for x in ['alternance', 'apprenticeship']):
         contract_type = 'apprenticeship'
     
-    # Remote
-    remote = any(kw in text_lower for kw in ['remote', 'télétravail', 'teletravail', 'full remote', 'hybride', 'hybrid'])
+    # Remote avec nombre de jours
+    remote_days = extract_remote_days(text)
+    remote = remote_days is not None
     
     return {
         'url': url,
         'name': basic_info.get('name', '') if basic_info else '',
-        'company': company_name,  # Nom nettoyé
+        'company': company_name,
         'location': basic_info.get('location', 'Paris') if basic_info else 'Paris',
         'thumbnail': basic_info.get('thumbnail', '') if basic_info else '',
         'technologies': technologies,
@@ -357,25 +405,27 @@ def analyze_job_page(url, basic_info=None):
         'years_experience': years_exp,
         'contract_type': contract_type,
         'remote': remote,
-        'description': text[:2000],  # Limite la description
-        'full_content': text,  # Pour référence
+        'remote_days': remote_days,
+        'description': text[:2000],
+        'full_content': text,
     }
 
 # Test
 if __name__ == '__main__':
-    # Test d'extraction d'expérience
+    # Test d'extraction de remote
     test_texts = [
-        "Nous cherchons un développeur avec 3 ans d'expérience minimum",
-        "Profil recherché : 5+ years of experience in software development",
-        "Experience required: 1-3 years",
-        "Minimum 4 ans d'expérience professionnelle",
-        "Vous avez entre 2 et 5 ans d'expérience",
-        "Profile: Senior developer with 8 years experience",
+        "Poste en full remote",
+        "Télétravail 2 jours par semaine",
+        "3 jours de remote par semaine",
+        "Mode hybride possible",
+        "Pas de télétravail",
+        "2-3 days remote per week",
+        "Full remote 100%",
+        "Télétravail 1 jour / 5",
     ]
     
     for text in test_texts:
-        years = extract_experience_years(text)
-        seniority = determine_seniority_from_years(years)
+        days = extract_remote_days(text)
         print(f"Text: {text[:50]}...")
-        print(f"  Years: {years}, Seniority: {seniority}")
+        print(f"  Remote days: {days}")
         print()

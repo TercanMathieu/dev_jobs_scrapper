@@ -9,7 +9,7 @@ class JobsPage {
             technologies: [],
             seniority: [],
             contract_type: [],
-            remote: false,
+            remote_days: [],
             company: '',
             search: ''
         };
@@ -45,10 +45,9 @@ class JobsPage {
             cb.addEventListener('change', () => this.updateContractFilters());
         });
 
-        // Remote checkbox
-        document.getElementById('remote-only')?.addEventListener('change', (e) => {
-            this.filters.remote = e.target.checked;
-            this.applyFilters();
+        // Remote checkboxes
+        document.querySelectorAll('input[name="remote_days"]').forEach(cb => {
+            cb.addEventListener('change', () => this.updateRemoteFilters());
         });
 
         // Per page selector
@@ -109,6 +108,12 @@ class JobsPage {
         this.applyFilters();
     }
 
+    updateRemoteFilters() {
+        const checkboxes = document.querySelectorAll('input[name="remote_days"]:checked');
+        this.filters.remote_days = Array.from(checkboxes).map(cb => cb.value);
+        this.applyFilters();
+    }
+
     applyFilters() {
         this.currentPage = 1;
         this.loadJobs();
@@ -119,7 +124,7 @@ class JobsPage {
             technologies: [],
             seniority: [],
             contract_type: [],
-            remote: false,
+            remote_days: [],
             company: '',
             search: ''
         };
@@ -182,11 +187,11 @@ class JobsPage {
 
             if (this.filters.search) params.append('search', this.filters.search);
             if (this.filters.company) params.append('company', this.filters.company);
-            if (this.filters.remote) params.append('remote', 'true');
             
             this.filters.technologies.forEach(t => params.append('technologies', t));
             this.filters.seniority.forEach(s => params.append('seniority', s));
             this.filters.contract_type.forEach(c => params.append('contract_type', c));
+            this.filters.remote_days.forEach(r => params.append('remote_days', r));
 
             const response = await fetch(`/api/jobs?${params}`);
             const data = await response.json();
@@ -219,38 +224,35 @@ class JobsPage {
             return;
         }
 
-        container.innerHTML = this.jobs.map(job => this.renderJobCard(job)).join('');
-    }
+        container.innerHTML = this.jobs.map((job, index) => {
+            // Valeurs par défaut pour éviter les N/A
+            const jobName = job.name && job.name !== 'N/A' && job.name !== 'Unknown Position' ? job.name : 'Poste non spécifié';
+            const jobCompany = job.company && job.company !== 'N/A' && job.company !== 'Unknown Company' ? job.company : 'Entreprise non spécifiée';
+            const jobLocation = job.location && job.location !== 'N/A' ? job.location : 'Paris';
+            const jobLink = job.link || job.url || '#';
+            const jobDate = job.date || 'Date inconnue';
+            
+            const techs = job.technologies?.slice(0, 8) || [];
+            const moreTechs = (job.technologies?.length || 0) > 8 ? `+${job.technologies.length - 8}` : '';
+            
+            const seniority = job.seniority || 'not_specified';
+            const contractType = job.contract_type || 'not_specified';
+            const isRemote = job.remote || false;
+            const remoteDays = job.remote_days;
 
-    renderJobCard(job) {
-        const seniorityLabels = {
-            'junior': 'Junior',
-            'mid': 'Mid-level',
-            'senior': 'Senior',
-            'lead': 'Lead',
-            'expert': 'Expert',
-            'not_specified': 'Non spécifié'
-        };
+            // Format remote label
+            let remoteLabel = '';
+            if (remoteDays === 'full') {
+                remoteLabel = '🌍 Full Remote';
+            } else if (typeof remoteDays === 'number') {
+                remoteLabel = `🏠 ${remoteDays}j télétravail/semaine`;
+            } else if (remoteDays === 'hybrid') {
+                remoteLabel = '🏠 Télétravail hybride';
+            } else if (isRemote) {
+                remoteLabel = '🏠 Remote';
+            }
 
-        const contractLabels = {
-            'cdi': 'CDI',
-            'cdd': 'CDD',
-            'freelance': 'Freelance',
-            'internship': 'Stage',
-            'apprenticeship': 'Alternance',
-            'not_specified': 'Non spécifié'
-        };
-
-        // Valeurs par défaut pour éviter les N/A
-        const jobName = job.name && job.name !== 'N/A' && job.name !== 'Unknown Position' ? job.name : 'Poste non spécifié';
-        const jobCompany = job.company && job.company !== 'N/A' && job.company !== 'Unknown Company' ? job.company : 'Entreprise non spécifiée';
-        const jobLocation = job.location && job.location !== 'N/A' ? job.location : 'Paris';
-        const jobLink = job.link || job.url || '#';
-        
-        const techs = job.technologies?.slice(0, 8) || [];
-        const moreTechs = (job.technologies?.length || 0) > 8 ? `+${job.technologies.length - 8}` : '';
-
-        return `
+            return `
             <div class="job-card">
                 <div class="job-card-header">
                     <img src="${job.thumbnail || 'https://via.placeholder.com/50?text=JOB'}" 
@@ -265,17 +267,17 @@ class JobsPage {
                 </div>
 
                 <div class="job-meta">
-                    ${job.seniority && job.seniority !== 'not_specified' ? `
-                        <span class="job-tag seniority-${job.seniority}">
-                            ${seniorityLabels[job.seniority]}
+                    ${seniority !== 'not_specified' ? `
+                        <span class="job-tag seniority-${seniority}">
+                            ${this.getSeniorityLabel(seniority)}
                         </span>
                     ` : ''}
-                    ${job.contract_type && job.contract_type !== 'not_specified' ? `
-                        <span class="job-tag contract-${job.contract_type}">
-                            ${contractLabels[job.contract_type]}
+                    ${contractType !== 'not_specified' ? `
+                        <span class="job-tag contract-${contractType}">
+                            ${contractType.toUpperCase()}
                         </span>
                     ` : ''}
-                    ${job.remote ? '<span class="job-tag remote">🌍 Remote</span>' : ''}
+                    ${remoteLabel ? `<span class="job-tag remote">${remoteLabel}</span>` : ''}
                 </div>
 
                 ${techs.length > 0 ? `
@@ -291,7 +293,19 @@ class JobsPage {
                     </a>
                 </div>
             </div>
-        `;
+        `}).join('');
+    }
+
+    getSeniorityLabel(level) {
+        const labels = {
+            'junior': 'Junior',
+            'mid': 'Mid-level',
+            'senior': 'Senior',
+            'lead': 'Lead',
+            'expert': 'Expert',
+            'not_specified': 'Non spécifié'
+        };
+        return labels[level] || level;
     }
 
     updatePagination() {

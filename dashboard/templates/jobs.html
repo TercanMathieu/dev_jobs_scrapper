@@ -97,11 +97,31 @@
 
                 <!-- Remote -->
                 <div class="filter-group">
-                    <label>🏠 Remote</label>
-                    <div class="checkbox-group">
+                    <label>🏠 Télétravail</label>
+                    <div class="checkbox-group" id="remote-filters">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="remote-only" name="remote" value="true">
-                            <span class="tag remote">🌍 Uniquement remote</span>
+                            <input type="checkbox" name="remote_days" value="full">
+                            <span class="tag remote">🌍 Full Remote (100%)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remote_days" value="4">
+                            <span class="tag remote">4 jours / semaine</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remote_days" value="3">
+                            <span class="tag remote">3 jours / semaine</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remote_days" value="2">
+                            <span class="tag remote">2 jours / semaine</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remote_days" value="1">
+                            <span class="tag remote">1 jour / semaine</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remote_days" value="hybrid">
+                            <span class="tag remote">Hybride (non précisé)</span>
                         </label>
                     </div>
                 </div>
