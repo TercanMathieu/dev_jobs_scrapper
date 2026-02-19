@@ -241,30 +241,36 @@ class JobsPage {
             'not_specified': 'Non spécifié'
         };
 
+        // Valeurs par défaut pour éviter les N/A
+        const jobName = job.name && job.name !== 'N/A' && job.name !== 'Unknown Position' ? job.name : 'Poste non spécifié';
+        const jobCompany = job.company && job.company !== 'N/A' && job.company !== 'Unknown Company' ? job.company : 'Entreprise non spécifiée';
+        const jobLocation = job.location && job.location !== 'N/A' ? job.location : 'Paris';
+        const jobLink = job.link || job.url || '#';
+        
         const techs = job.technologies?.slice(0, 8) || [];
         const moreTechs = (job.technologies?.length || 0) > 8 ? `+${job.technologies.length - 8}` : '';
 
         return `
             <div class="job-card">
                 <div class="job-card-header">
-                    <img src="${job.thumbnail || 'https://via.placeholder.com/50'}" 
-                         alt="${job.company}" 
+                    <img src="${job.thumbnail || 'https://via.placeholder.com/50?text=JOB'}" 
+                         alt="${jobCompany}" 
                          class="job-thumbnail"
-                         onerror="this.src='https://via.placeholder.com/50'">
+                         onerror="this.src='https://via.placeholder.com/50?text=JOB'">
                     <div class="job-title-section">
-                        <div class="job-title">${this.escapeHtml(job.name)}</div>
-                        <div class="job-company">🏢 ${this.escapeHtml(job.company)}</div>
-                        <div class="job-location">📍 ${this.escapeHtml(job.location)}</div>
+                        <div class="job-title">${this.escapeHtml(jobName)}</div>
+                        <div class="job-company">🏢 ${this.escapeHtml(jobCompany)}</div>
+                        <div class="job-location">📍 ${this.escapeHtml(jobLocation)}</div>
                     </div>
                 </div>
 
                 <div class="job-meta">
-                    ${job.seniority !== 'not_specified' ? `
+                    ${job.seniority && job.seniority !== 'not_specified' ? `
                         <span class="job-tag seniority-${job.seniority}">
                             ${seniorityLabels[job.seniority]}
                         </span>
                     ` : ''}
-                    ${job.contract_type !== 'not_specified' ? `
+                    ${job.contract_type && job.contract_type !== 'not_specified' ? `
                         <span class="job-tag contract-${job.contract_type}">
                             ${contractLabels[job.contract_type]}
                         </span>
@@ -274,14 +280,13 @@ class JobsPage {
 
                 ${techs.length > 0 ? `
                     <div class="job-technologies">
-                        ${techs.map(t => `<span class="tech-pill">${t}</span>
-                        `).join('')}
+                        ${techs.map(t => `<span class="tech-pill">${t}</span>`).join('')}
                         ${moreTechs ? `<span class="tech-pill">${moreTechs}</span>` : ''}
                     </div>
-                ` : ''}
+                ` : '<div class="job-technologies"><span class="tech-pill">Techno non détectée</span></div>'}
 
                 <div class="job-actions">
-                    <a href="${job.link}" target="_blank" class="btn-job btn-view">
+                    <a href="${jobLink}" target="_blank" class="btn-job btn-view">
                         Voir l'offre →
                     </a>
                 </div>

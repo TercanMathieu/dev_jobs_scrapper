@@ -18,74 +18,151 @@ class WTTJ(Website):
             True,
         )
 
+    def _extract_company_name(self, job_element):
+        """Extract company name with multiple fallback selectors"""
+        # Try different selectors for company name
+        selectors = [
+            ('span', {'class': lambda x: x and 'company' in x.lower() if x else False}),
+            ('span', {'data-testid': lambda x: 'company' in x.lower() if x else False}),
+            ('p', {'class': lambda x: x and 'company' in x.lower() if x else False}),
+            ('div', {'class': lambda x: x and 'company' in x.lower() if x else False}),
+            # Look for any text that might be company name before job title
+            ('span', {}),
+        ]
+        
+        for tag, attrs in selectors:
+            elements = job_element.find_all(tag, attrs)
+            for elem in elements:
+                text = elem.text.strip()
+                # Company names are usually short (2-50 chars)
+                if 2 < len(text) < 50 and text.isupper() == False:
+                    # Avoid job titles which are usually longer
+                    if len(text.split()) <= 6:
+                        return text
+        
+        return "Unknown Company"
+
+    def _extract_job_title(self, job_element):
+        """Extract job title with multiple fallback selectors"""
+        selectors = [
+            ('h2', {}),
+            ('h3', {}),
+            ('h1', {}),
+            ('a', {'data-testid': lambda x: 'title' in x.lower() if x else False}),
+            ('span', {'class': lambda x: x and 'title' in x.lower() if x else False}),
+        ]
+        
+        for tag, attrs in selectors:
+            elem = job_element.find(tag, attrs)
+            if elem:
+                text = elem.text.strip()
+                if len(text) > 5:  # Job titles are usually longer
+                    return text
+        
+        return "Unknown Position"
+
+    def _extract_job_link(self, job_element):
+        """Extract job link"""
+        # Find any link that contains job details
+        links = job_element.find_all('a', href=True)
+        for link in links:
+            href = link['href']
+            # Look for job links
+            if '/jobs/' in href or '/companies/' in href:
+                if href.startswith('http'):
+                    return href
+                else:
+                    return 'https://welcometothejungle.com' + href
+        return None
+
     def scrap(self):
         page = 1
+        jobs_found_this_run = 0
 
         while True:
-
-            print("Looking for another WTTJ\'s page..")
+            print(f"\n{'='*50}")
+            print(f"WTTJ - Page {page}")
+            print(f"{'='*50}")
 
             self.page_url = self.url.format(page)
-            print('test0')
+            print(f"Loading: {self.page_url}")
+            
             self._init_driver(self.page_url)
-            print('test2 - Driver initialized')
             page_data = self._get_chrome_page_data()
-            print(f'test3 - Page data retrieved, length: {len(page_data)} chars')
-            print('Creating BeautifulSoup object...')
+            
+            # Save debug HTML on first page
+            if page == 1:
+                with open('/tmp/wttj_debug.html', 'w', encoding='utf-8') as f:
+                    f.write(page_data)
+                print("Saved debug HTML to /tmp/wttj_debug.html")
+            
             page_soup = BeautifulSoup(page_data, 'html.parser')
-            print('test1 - BeautifulSoup created successfully')
-            all_jobs_raw = page_soup.find_all(
-                'li', attrs={'data-testid': 'search-results-list-item-wrapper'})
-            print(f"Found {len(all_jobs_raw)} jobs")
-            if len(all_jobs_raw) == 0 or page >= 4:  # Scrap finished
-                return
+            
+            # Try multiple selectors for job listings
+            all_jobs_raw = page_soup.find_all('li', attrs={'data-testid': 'search-results-list-item-wrapper'})
+            
+            if not all_jobs_raw:
+                # Try alternative selectors
+                all_jobs_raw = page_soup.find_all('article')
+            if not all_jobs_raw:
+                all_jobs_raw = page_soup.find_all('div', {'class': lambda x: x and 'job' in x.lower() if x else False})
+            
+            print(f"Found {len(all_jobs_raw)} job elements")
+            
+            if len(all_jobs_raw) == 0 or page >= 4:
+                print("No more jobs found or page limit reached")
+                break
 
-            print("\nWTTJ\'s found jobs ({}) :".format(len(all_jobs_raw)))
-            for jobs in all_jobs_raw:
+            for i, job in enumerate(all_jobs_raw):
                 try:
-                    # Find company name - look for span with company name class
-                    company_span = jobs.find('span', class_='sc-izXThL fFdRYJ sc-jkYWRr ewxOXb wui-text')
-                    if not company_span:
-                        print('Could not find company name, skipping job')
+                    print(f"\n--- Job {i+1}/{len(all_jobs_raw)} ---")
+                    
+                    # Extract company
+                    job_company = self._extract_company_name(job)
+                    print(f"Company: {job_company}")
+
+                    # Extract job title
+                    job_name = self._extract_job_title(job)
+                    print(f"Job: {job_name}")
+
+                    # Extract link
+                    job_link = self._extract_job_link(job)
+                    if not job_link:
+                        print("No link found, skipping")
                         continue
-                    job_company = company_span.text.strip()
+                    print(f"Link: {job_link}")
 
-                    # Find job name - look for h2 title
-                    job_title_h2 = jobs.find('h2', class_='sc-izXThL fnsHVh wui-text')
-                    if not job_title_h2:
-                        print('Could not find job title, skipping job')
-                        continue
-                    job_name = job_title_h2.text.strip()
+                    # Extract thumbnail
+                    job_thumbnail = ''
+                    img = job.find('img')
+                    if img and img.get('src'):
+                        job_thumbnail = img['src']
 
-                    # Find job link
-                    job_link_a = jobs.find('a', href=True)
-                    if not job_link_a:
-                        print('Could not find job link, skipping job')
-                        continue
-                    job_link = 'https://welcometothejungle.com' + job_link_a['href']
-
-                    # Find thumbnail - first img tag
-                    job_thumbnail_img = jobs.find('img')
-                    job_thumbnail = job_thumbnail_img['src'] if job_thumbnail_img else ''
-
-                    print('Job : ' + job_name)
-                    print('Company : ' + job_company)
-                    print(job_link)
-                    print('\n')
-
+                    # Check if already in DB
                     if not is_url_in_database(job_link):
-                        print("Found new job: {}".format(job_link))
+                        print("✓ New job!")
                         add_url_in_database(job_link)
-                        embed = create_embed(
-                            job_name, job_company, 'Paris', job_link, job_thumbnail)
                         
-                        # Get full description for analysis
+                        embed = create_embed(job_name, job_company, 'Paris', job_link, job_thumbnail)
                         description = f"{job_name} {job_company}"
-                        send_embed(embed, self, job_name, job_company, 'Paris', job_link, job_thumbnail, description)
+                        
+                        success = send_embed(embed, self, job_name, job_company, 'Paris', job_link, job_thumbnail, description)
+                        
+                        if success:
+                            jobs_found_this_run += 1
                         time.sleep(4)
+                    else:
+                        print("✗ Already in database")
+                        
                 except Exception as e:
                     print(f"Error processing job: {e}")
+                    import traceback
+                    traceback.print_exc()
                     continue
 
-            print('WTTJ\'s page #{} finished'.format(page))
+            print(f'WTTJ page #{page} finished - New jobs this page: {jobs_found_this_run}')
             page += 1
+            
+        print(f"\n{'='*50}")
+        print(f"WTTJ complete. Total new jobs: {jobs_found_this_run}")
+        print(f"{'='*50}")
