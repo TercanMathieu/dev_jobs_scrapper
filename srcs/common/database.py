@@ -16,8 +16,9 @@ def is_url_in_database(url):
     return jobs_collection.find_one({'url': url}) is not None
 
 def add_url_in_database(url):
-    """Add an URL into our MongoDB database."""
-    jobs_collection.insert_one({'url': url, 'date_added': datetime.now()})
+    """Add an URL into our MongoDB database (minimal entry, will be enriched later)."""
+    # Ne rien faire ici - le save_job s'en chargera avec toutes les données
+    pass
 
 def save_job(job_data):
     """
@@ -28,10 +29,20 @@ def save_job(job_data):
     - salary: str, remote: bool, posted_date: str
     """
     job_data['date_scraped'] = datetime.now()
-    job_data['date_added'] = datetime.now()
+    if 'date_added' not in job_data:
+        job_data['date_added'] = datetime.now()
     
-    # Check if job already exists
-    if not jobs_collection.find_one({'url': job_data.get('url')}):
+    # Upsert: met à jour si existe, insère sinon
+    existing = jobs_collection.find_one({'url': job_data.get('url')})
+    if existing:
+        # Met à jour avec les données enrichies
+        jobs_collection.update_one(
+            {'url': job_data.get('url')},
+            {'$set': job_data}
+        )
+        return True
+    else:
+        # Insère nouveau
         jobs_collection.insert_one(job_data)
         return True
     return False
