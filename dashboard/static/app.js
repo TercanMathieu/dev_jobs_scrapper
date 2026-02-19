@@ -35,8 +35,9 @@ class Dashboard {
     // Load jobs
     async loadJobs() {
         try {
-            const response = await fetch('/api/jobs');
-            const jobs = await response.json();
+            const response = await fetch('/api/jobs?per_page=10');
+            const data = await response.json();
+            const jobs = data.jobs || [];
             
             const container = document.getElementById('jobs-list');
             
@@ -45,17 +46,31 @@ class Dashboard {
                 return;
             }
             
-            container.innerHTML = jobs.map(job => `
-                <div class="job-item">
-                    <div class="job-title">${this.escapeHtml(job.name)}</div>
-                    <div class="job-company">🏢 ${this.escapeHtml(job.company)}</div>
-                    <div class="job-location">📍 ${this.escapeHtml(job.location)}</div>
-                    <div class="job-date">🕐 ${job.date}</div>
-                    <a href="${job.link}" target="_blank" class="job-link">Voir l'offre →</a>
+            container.innerHTML = jobs.map((job, index) => {
+                // Valeurs par défaut
+                const jobName = job.name && job.name !== 'N/A' ? job.name : 'Poste non spécifié';
+                const jobCompany = job.company && job.company !== 'N/A' ? job.company : 'Entreprise non spécifiée';
+                const jobLocation = job.location && job.location !== 'N/A' ? job.location : 'Paris';
+                const jobLink = job.link || job.url || '#';
+                const jobDate = job.date || 'Date inconnue';
+                
+                return `
+                <div class="job-item" onclick="window.open('${jobLink}', '_blank')" title="Cliquez pour voir l'offre">
+                    <div class="job-title">${this.escapeHtml(jobName)}</div>
+                    <div class="job-company">🏢 ${this.escapeHtml(jobCompany)}</div>
+                    <div class="job-location">📍 ${this.escapeHtml(jobLocation)}</div>
+                    <div class="job-date">🕐 ${jobDate}</div>
+                    <a href="${jobLink}" target="_blank" class="job-link" onclick="event.stopPropagation()">Voir l'offre →</a>
                 </div>
-            `).join('');
+            `}).join('');
+            
+            // Add click handlers
+            document.querySelectorAll('.job-item').forEach((item, index) => {
+                item.style.cursor = 'pointer';
+            });
         } catch (error) {
             console.error('Error loading jobs:', error);
+            document.getElementById('jobs-list').innerHTML = '<div class="loading">Erreur de chargement</div>';
         }
     }
 
