@@ -3,13 +3,16 @@ from time import sleep
 from websites.stationf import StationF
 from websites.wttj import WTTJ
 from websites.jobteaser import JobTeaser
+from websites.indeed import Indeed
+from websites.linkedin import LinkedIn
+from websites.apec import APEC
 from common.discord_logger import (
     log_iteration_start, log_scrap_start, 
     log_scrap_end, log_error
 )
 
 SLEEP_TIME = 900
-WEBSITES_TO_SCRAP = [WTTJ(), JobTeaser(), StationF()]
+WEBSITES_TO_SCRAP = [WTTJ(), JobTeaser(), StationF(), Indeed(), LinkedIn(), APEC()]
 
 
 def main():
