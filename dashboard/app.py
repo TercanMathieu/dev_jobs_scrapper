@@ -270,18 +270,17 @@ def get_jobs():
         query['remote'] = remote.lower() == 'true'
     
     # Location filter (paris or all)
+    location_or_conditions = None
     location = request.args.get('location', 'all')
     if location == 'paris':
         # Match Paris and Ile-de-France locations (case-insensitive)
-        # Using $or with multiple regex patterns for better matching
-        query['$or'] = [
+        location_or_conditions = [
             {'location': {'$regex': 'paris', '$options': 'i'}},
             {'location': {'$regex': 'île-de-france|ile-de-france|idf', '$options': 'i'}},
             {'location': {'$regex': 'hauts-de-seine|seine-saint-denis|val-de-marne|essonne|yvelines|val-d\'oise|seine-et-marne', '$options': 'i'}},
             {'location': {'$regex': '\(75\)|\(77\)|\(78\)|\(91\)|\(92\)|\(93\)|\(94\)|\(95\)', '$options': 'i'}},
             {'location': {'$regex': ',?\\s*75[0-9]{3}|,?\\s*77[0-9]{3}|,?\\s*78[0-9]{3}|,?\\s*91[0-9]{3}|,?\\s*92[0-9]{3}|,?\\s*93[0-9]{3}|,?\\s*94[0-9]{3}|,?\\s*95[0-9]{3}', '$options': 'i'}},
         ]
-    # if 'all', don't add location filter (show all France)
     
     # Remote days filter (1, 2, 3, 4, 'full', 'hybrid')
     remote_days = request.args.getlist('remote_days')
@@ -300,12 +299,25 @@ def get_jobs():
         query['company'] = {'$regex': company, '$options': 'i'}
     
     search = request.args.get('search')
+    search_or_conditions = None
     if search:
-        query['$or'] = [
+        search_or_conditions = [
             {'name': {'$regex': search, '$options': 'i'}},
             {'description': {'$regex': search, '$options': 'i'}},
             {'company': {'$regex': search, '$options': 'i'}}
         ]
+    
+    # Handle $or conditions - combine location and search if both present
+    if location_or_conditions and search_or_conditions:
+        # Both filters active - need to use $and with $or conditions
+        query['$and'] = [
+            {'$or': location_or_conditions},
+            {'$or': search_or_conditions}
+        ]
+    elif location_or_conditions:
+        query['$or'] = location_or_conditions
+    elif search_or_conditions:
+        query['$or'] = search_or_conditions
     
     total = jobs_collection.count_documents(query)
     jobs = list(jobs_collection.find(query).sort('date_scraped', -1).skip(skip).limit(per_page))
