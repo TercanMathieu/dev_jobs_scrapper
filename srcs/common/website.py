@@ -16,6 +16,8 @@ class Website:
         self.discord_avatar_url = discord_avatar_url
         self.should_scroll_page = should_scroll_page
         self.driver = None
+        self.extra_chrome_options = []
+    
     def _get_Driver(self):
         return self.driver
     
@@ -35,9 +37,22 @@ class Website:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-notifications")
         options.add_argument("--disable-popup-blocking")
+        
+        # Anti-bot detection options
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # Add any extra options from subclasses
+        for opt in self.extra_chrome_options:
+            options.add_argument(opt)
 
         self.driver = webdriver.Chrome(
             options=options, service=service)
+        
+        # Remove webdriver property to avoid detection
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
         self.driver.get(url)
 
 

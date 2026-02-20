@@ -8,23 +8,27 @@ from common.website import Website
 
 
 class LinkedIn(Website):
-    """Scraper for LinkedIn Jobs"""
+    """Scraper for LinkedIn Jobs - Note: LinkedIn requires login for most content"""
 
     def __init__(self):
         super().__init__(
             'LinkedIn',
-            'https://www.linkedin.com/jobs/search?keywords=D%C3%A9veloppeur%20Software&location=Paris%2C%20%C3%8Ele-de-France%2C%20France&geoId=105015875&f_TPR=r86400&start={}',
+            'https://www.linkedin.com/jobs/search?keywords=D%C3%A9veloppeur%20Software&location=Paris%2C%20France&geoId=105015875&f_TPR=r86400&start={}',
             'LINKEDIN JOBS',
             'https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Logo.svg.original.svg',
             True,
         )
+        # Add extra Chrome options
+        self.extra_chrome_options = [
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--accept-lang=fr-FR,fr',
+        ]
 
     def _is_valid_company_name(self, text, job_title=None):
         """Check if text is a valid company name"""
         if not text or len(text) < 2 or len(text) > 60:
             return False
         
-        # Check against job title
         if job_title:
             text_norm = text.lower().strip()
             title_norm = job_title.lower().strip()
@@ -33,16 +37,11 @@ class LinkedIn(Website):
             if text_norm in title_norm and len(text_norm) > 8:
                 return False
         
-        # Invalid patterns
         invalid_patterns = [
             'recrutement', 'recrute', 'recruiting', 'hiring',
-            'active', 'actif', 'en cours', 'in progress',
             'publié', 'published', 'posté', 'posted',
             'il y a', 'ago', 'days', 'jours',
-            'voir', 'view', 'en savoir', 'more',
             ' CDI', ' CDD', ' stage', ' alternance',
-            'temps plein', 'temps partiel', 'full time', 'part time',
-            'télétravail', 'remote', 'hybride', 'hybrid',
         ]
         
         job_keywords = [
@@ -50,7 +49,6 @@ class LinkedIn(Website):
             'ingénieur', 'ingenieur', 'engineer',
             'frontend', 'backend', 'fullstack', 'full-stack',
             'software', 'web', 'mobile', 'cloud',
-            'data', 'machine learning', 'ia ', 'ai ',
         ]
         
         text_lower = text.lower()
@@ -61,21 +59,15 @@ class LinkedIn(Website):
         if text.isupper() and len(text) > 10:
             return False
             
-        digit_count = sum(c.isdigit() for c in text)
-        if digit_count > 3:
-            return False
-        
         return True
 
     def _extract_company_name(self, job_element, job_title=None):
         """Extract company name from LinkedIn job element"""
         
-        # LinkedIn specific selectors
+        # LinkedIn often has company in specific classes
         selectors = [
             ('span', {'class': lambda x: x and 'company' in str(x).lower()}),
             ('a', {'class': lambda x: x and 'company' in str(x).lower()}),
-            ('span', {'class': lambda x: x and 'job-card-container__company-name' in str(x)}),
-            ('a', {'data-tracking-control-name': lambda x: x and 'company' in str(x)}),
             ('h4', {'class': lambda x: x and 'company' in str(x).lower()}),
             ('span', {'class': 'base-search-card__subtitle'}),
         ]
@@ -87,15 +79,15 @@ class LinkedIn(Website):
                 if self._is_valid_company_name(text, job_title):
                     return text
         
-        # Fallback
-        for tag in ['span', 'a', 'h4']:
-            for elem in job_element.find_all(tag):
-                text = elem.get_text(strip=True)
-                if (2 < len(text) < 35 and 
-                    len(text.split()) <= 4 and
-                    text[0].isupper() and
-                    self._is_valid_company_name(text, job_title)):
-                    return text
+        # Fallback: look for text that looks like a company name
+        for elem in job_element.find_all(['span', 'a', 'h4']):
+            text = elem.get_text(strip=True)
+            if (2 < len(text) < 40 and 
+                len(text.split()) <= 4 and
+                not text.isupper() and
+                text[0].isupper() and
+                self._is_valid_company_name(text, job_title)):
+                return text
         
         return "Entreprise non spécifiée"
 
@@ -103,10 +95,8 @@ class LinkedIn(Website):
         """Extract job title from LinkedIn"""
         selectors = [
             ('h3', {'class': lambda x: x and 'title' in str(x).lower()}),
-            ('a', {'class': lambda x: x and 'job-card-list__title' in str(x)}),
             ('span', {'class': lambda x: x and 'job-card-container__link' in str(x)}),
             ('h3', {'class': 'base-search-card__title'}),
-            ('a', {'class': lambda x: x and 'job-card' in str(x) and 'title' in str(x)}),
             ('h3', {}),
         ]
         
@@ -136,29 +126,12 @@ class LinkedIn(Website):
 
     def _extract_job_link(self, job_element):
         """Extract job link"""
-        # Look for the main job link
-        link_selectors = [
-            ('a', {'class': lambda x: x and 'job-card-list__title' in str(x)}),
-            ('a', {'data-tracking-control-name': lambda x: x and 'job' in str(x)}),
-            ('a', {'href': lambda x: x and '/jobs/view/' in str(x)}),
-        ]
-        
-        for tag, attrs in link_selectors:
-            link_elem = job_element.find(tag, attrs)
-            if link_elem and link_elem.get('href'):
-                href = link_elem['href']
+        for link in job_element.find_all('a', href=True):
+            href = link['href']
+            if '/jobs/view/' in href:
                 if href.startswith('/'):
                     return 'https://www.linkedin.com' + href
                 return href
-        
-        # Fallback: any link containing jobs/view
-        link_elem = job_element.find('a', href=re.compile(r'/jobs/view/'))
-        if link_elem and link_elem.get('href'):
-            href = link_elem['href']
-            if href.startswith('/'):
-                return 'https://www.linkedin.com' + href
-            return href
-        
         return None
 
     def scrap(self):
@@ -173,8 +146,19 @@ class LinkedIn(Website):
             self.page_url = self.url.format(page)
             print(f"Loading: {self.page_url}")
             
-            self._init_driver(self.page_url)
-            page_data = self._get_chrome_page_data()
+            try:
+                self._init_driver(self.page_url)
+                page_data = self._get_chrome_page_data()
+            except Exception as e:
+                print(f"Error loading page: {e}")
+                break
+            
+            # Check if we need to login (LinkedIn blocks without login)
+            if 'sign in' in page_data.lower() and 'join now' in page_data.lower():
+                print("WARNING: LinkedIn requires login - cannot scrape without authentication")
+                with open('/tmp/linkedin_blocked.html', 'w', encoding='utf-8') as f:
+                    f.write(page_data)
+                break
             
             # Save debug HTML on first page
             if page == 0:
@@ -192,20 +176,24 @@ class LinkedIn(Website):
                 ('li', {'class': lambda x: x and 'jobs-search-results__list-item' in str(x)}),
                 ('div', {'class': lambda x: x and 'base-card' in str(x)}),
                 ('div', {'data-job-id': True}),
+                ('div', {'class': lambda x: x and 'job-search-card' in str(x)}),
             ]
             
             for tag, attrs in selectors_to_try:
                 job_listings = page_soup.find_all(tag, attrs)
                 if job_listings:
-                    print(f"Found {len(job_listings)} jobs with selector: {tag}, {attrs}")
+                    print(f"Found {len(job_listings)} jobs with selector: {tag}")
                     break
             
+            # Alternative: find by job links
             if not job_listings:
-                # Try to find any clickable job elements
-                job_listings = page_soup.find_all('a', href=re.compile(r'/jobs/view/'))
-                job_listings = [p.parent for p in job_listings] if job_listings else []
+                job_links = page_soup.find_all('a', href=re.compile(r'/jobs/view/'))
+                job_listings = [link.find_parent(['div', 'li', 'article']) for link in job_links if link.find_parent()]
+                job_listings = [j for j in job_listings if j]
+                if job_listings:
+                    print(f"Found {len(job_listings)} jobs via link search")
             
-            if not job_listings or page >= 50:  # Limit to ~2 pages
+            if not job_listings or page >= 25:  # Limit to ~1 page
                 print("No more jobs found or page limit reached")
                 break
 
@@ -217,6 +205,9 @@ class LinkedIn(Website):
                     
                     # Extract job title first
                     job_name = self._extract_job_title(job)
+                    if job_name == "Unknown Position":
+                        print("Could not extract job title, skipping")
+                        continue
                     print(f"Job: {job_name}")
                     
                     # Extract company
@@ -257,8 +248,8 @@ class LinkedIn(Website):
                     traceback.print_exc()
                     continue
 
-            print(f'LinkedIn page finished - New jobs this page: {jobs_found_this_run}')
-            page += 25  # LinkedIn pagination
+            print(f'LinkedIn page finished - Total new jobs: {jobs_found_this_run}')
+            page += 25
             
         print(f"\n{'='*50}")
         print(f"LinkedIn complete. Total new jobs: {jobs_found_this_run}")

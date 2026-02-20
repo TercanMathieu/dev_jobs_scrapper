@@ -18,13 +18,16 @@ class APEC(Website):
             'https://www.apec.fr/fileadmin/user_upload/Logos/Apec-Logo.svg',
             True,
         )
+        self.extra_chrome_options = [
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            '--accept-lang=fr-FR,fr',
+        ]
 
     def _is_valid_company_name(self, text, job_title=None):
         """Check if text is a valid company name"""
         if not text or len(text) < 2 or len(text) > 60:
             return False
         
-        # Check against job title
         if job_title:
             text_norm = text.lower().strip()
             title_norm = job_title.lower().strip()
@@ -33,15 +36,11 @@ class APEC(Website):
             if text_norm in title_norm and len(text_norm) > 8:
                 return False
         
-        # Invalid patterns
         invalid_patterns = [
             'recrutement', 'recrute', 'recruiting', 'hiring',
-            'active', 'actif', 'en cours', 'in progress',
             'publié', 'published', 'posté', 'posted',
             'il y a', 'ago', 'days', 'jours',
-            'voir', 'view', 'en savoir', 'more',
             ' CDI', ' CDD', ' stage', ' alternance',
-            'temps plein', 'temps partiel', 'full time', 'part time',
             'télétravail', 'remote', 'hybride', 'hybrid',
         ]
         
@@ -62,21 +61,17 @@ class APEC(Website):
         if text.isupper() and len(text) > 10:
             return False
             
-        digit_count = sum(c.isdigit() for c in text)
-        if digit_count > 3:
-            return False
-        
         return True
 
     def _extract_company_name(self, job_element, job_title=None):
         """Extract company name from APEC job element"""
         
-        # APEC specific selectors
         selectors = [
             ('span', {'class': lambda x: x and 'company' in str(x).lower()}),
             ('div', {'class': lambda x: x and 'company' in str(x).lower()}),
             ('span', {'class': lambda x: x and 'card-offer__company' in str(x)}),
             ('div', {'class': lambda x: x and 'offer-card__company' in str(x)}),
+            ('div', {'class': lambda x: x and 'nomEntreprise' in str(x)}),
         ]
         
         for tag, attrs in selectors:
@@ -86,7 +81,7 @@ class APEC(Website):
                 if self._is_valid_company_name(text, job_title):
                     return text
         
-        # APEC often has company in specific data attributes
+        # APEC often has company in data attributes
         for elem in job_element.find_all(attrs={'data-company': True}):
             text = elem['data-company'].strip()
             if self._is_valid_company_name(text, job_title):
@@ -98,6 +93,7 @@ class APEC(Website):
                 text = elem.get_text(strip=True)
                 if (2 < len(text) < 35 and 
                     len(text.split()) <= 4 and
+                    not text.isupper() and
                     text[0].isupper() and
                     self._is_valid_company_name(text, job_title)):
                     return text
@@ -111,6 +107,7 @@ class APEC(Website):
             ('h3', {'class': lambda x: x and 'title' in str(x).lower()}),
             ('span', {'class': lambda x: x and 'card-offer__title' in str(x)}),
             ('a', {'class': lambda x: x and 'offer-title' in str(x).lower()}),
+            ('div', {'class': lambda x: x and 'intitulePoste' in str(x)}),
             ('h2', {}),
         ]
         
@@ -129,6 +126,7 @@ class APEC(Website):
             ('span', {'class': lambda x: x and 'location' in str(x).lower()}),
             ('div', {'class': lambda x: x and 'location' in str(x).lower()}),
             ('span', {'class': lambda x: x and 'card-offer__location' in str(x)}),
+            ('div', {'class': lambda x: x and 'lieu' in str(x).lower()}),
         ]
         
         for tag, attrs in selectors:
@@ -140,30 +138,12 @@ class APEC(Website):
 
     def _extract_job_link(self, job_element):
         """Extract job link"""
-        # Look for links to job details
-        link_selectors = [
-            ('a', {'href': lambda x: x and '/offre-emploi/' in str(x)}),
-            ('a', {'class': lambda x: x and 'offer-link' in str(x).lower()}),
-            ('a', {'data-link': True}),
-        ]
-        
-        for tag, attrs in link_selectors:
-            link_elem = job_element.find(tag, attrs)
-            if link_elem and link_elem.get('href'):
-                href = link_elem['href']
-                if href.startswith('/'):
-                    return 'https://www.apec.fr' + href
-                return href
-        
-        # Fallback: any link
-        link_elem = job_element.find('a', href=True)
-        if link_elem and link_elem.get('href'):
-            href = link_elem['href']
+        for link in job_element.find_all('a', href=True):
+            href = link['href']
             if '/offre-emploi/' in href:
                 if href.startswith('/'):
                     return 'https://www.apec.fr' + href
                 return href
-        
         return None
 
     def scrap(self):
@@ -178,8 +158,12 @@ class APEC(Website):
             self.page_url = self.url.format(page)
             print(f"Loading: {self.page_url}")
             
-            self._init_driver(self.page_url)
-            page_data = self._get_chrome_page_data()
+            try:
+                self._init_driver(self.page_url)
+                page_data = self._get_chrome_page_data()
+            except Exception as e:
+                print(f"Error loading page: {e}")
+                break
             
             # Save debug HTML on first page
             if page == 0:
@@ -197,15 +181,24 @@ class APEC(Website):
                 ('div', {'class': lambda x: x and 'card-offer' in str(x).lower()}),
                 ('li', {'class': lambda x: x and 'offer' in str(x).lower()}),
                 ('article', {}),
+                ('div', {'class': lambda x: x and 'resultat' in str(x).lower()}),
             ]
             
             for tag, attrs in selectors_to_try:
                 job_listings = page_soup.find_all(tag, attrs)
                 if job_listings:
-                    print(f"Found {len(job_listings)} jobs with selector: {tag}, {attrs}")
+                    print(f"Found {len(job_listings)} jobs with selector: {tag}")
                     break
             
-            if not job_listings or page >= 3:  # Limit to 3 pages
+            # Alternative: find by links
+            if not job_listings:
+                job_links = page_soup.find_all('a', href=re.compile(r'/offre-emploi/'))
+                job_listings = [link.find_parent(['div', 'li', 'article']) for link in job_links if link.find_parent()]
+                job_listings = list(set([j for j in job_listings if j]))  # Remove duplicates
+                if job_listings:
+                    print(f"Found {len(job_listings)} jobs via link search")
+            
+            if not job_listings or page >= 3:
                 print("No more jobs found or page limit reached")
                 break
 
@@ -217,6 +210,9 @@ class APEC(Website):
                     
                     # Extract job title first
                     job_name = self._extract_job_title(job)
+                    if job_name == "Unknown Position":
+                        print("Could not extract job title, skipping")
+                        continue
                     print(f"Job: {job_name}")
                     
                     # Extract company
@@ -257,7 +253,7 @@ class APEC(Website):
                     traceback.print_exc()
                     continue
 
-            print(f'APEC page finished - New jobs this page: {jobs_found_this_run}')
+            print(f'APEC page finished - Total new jobs: {jobs_found_this_run}')
             page += 1
             
         print(f"\n{'='*50}")
