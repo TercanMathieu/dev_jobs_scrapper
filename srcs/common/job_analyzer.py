@@ -363,6 +363,26 @@ def analyze_job_page(url, basic_info=None):
     # Parser le HTML
     soup = BeautifulSoup(html_content, 'html.parser')
     
+    # Check if we got a Cloudflare/verification page
+    page_text = soup.get_text().lower()
+    if any(x in page_text for x in ['cf-browser-verification', 'ray id', 'checking your browser', 'please wait', 'cloudflare']):
+        print(f"⚠️ Cloudflare/verification page detected for {url}, using basic info only")
+        return {
+            'url': url,
+            'name': basic_info.get('name', '') if basic_info else '',
+            'company': company_name,
+            'location': basic_info.get('location', 'Paris') if basic_info else 'Paris',
+            'thumbnail': basic_info.get('thumbnail', '') if basic_info else '',
+            'technologies': [],
+            'seniority': 'not_specified',
+            'years_experience': None,
+            'contract_type': 'not_specified',
+            'remote': False,
+            'remote_days': None,
+            'description': '',
+            'full_content': '',
+        }
+    
     # Extraire tout le texte visible
     for script in soup(['script', 'style', 'nav', 'footer', 'header']):
         script.decompose()
