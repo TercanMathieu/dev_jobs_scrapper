@@ -269,6 +269,13 @@ def get_jobs():
     if remote is not None:
         query['remote'] = remote.lower() == 'true'
     
+    # Location filter (paris or all)
+    location = request.args.get('location', 'all')
+    if location == 'paris':
+        # Match Paris and Ile-de-France locations
+        query['location'] = {'$regex': 'paris|île-de-france|idf|75|77|78|91|92|93|94|95', '$options': 'i'}
+    # if 'all', don't add location filter (show all France)
+    
     # Remote days filter (1, 2, 3, 4, 'full', 'hybrid')
     remote_days = request.args.getlist('remote_days')
     if remote_days:

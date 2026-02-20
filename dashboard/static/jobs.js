@@ -11,7 +11,8 @@ class JobsPage {
             contract_type: [],
             remote_days: [],
             company: '',
-            search: ''
+            search: '',
+            location: 'all'
         };
         this.init();
     }
@@ -48,6 +49,11 @@ class JobsPage {
         // Remote checkboxes
         document.querySelectorAll('input[name="remote_days"]').forEach(cb => {
             cb.addEventListener('change', () => this.updateRemoteFilters());
+        });
+
+        // Location radio buttons
+        document.querySelectorAll('input[name="location"]').forEach(rb => {
+            rb.addEventListener('change', () => this.updateLocationFilter());
         });
 
         // Per page selector
@@ -114,6 +120,12 @@ class JobsPage {
         this.applyFilters();
     }
 
+    updateLocationFilter() {
+        const selected = document.querySelector('input[name="location"]:checked');
+        this.filters.location = selected ? selected.value : 'all';
+        this.applyFilters();
+    }
+
     applyFilters() {
         this.currentPage = 1;
         this.loadJobs();
@@ -126,7 +138,8 @@ class JobsPage {
             contract_type: [],
             remote_days: [],
             company: '',
-            search: ''
+            search: '',
+            location: 'all'
         };
         this.currentPage = 1;
 
@@ -134,6 +147,9 @@ class JobsPage {
         document.getElementById('search-input').value = '';
         document.getElementById('company-filter').value = '';
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+        document.querySelectorAll('input[type="radio"][name="location"]').forEach(rb => {
+            rb.checked = rb.value === 'all';
+        });
         document.querySelectorAll('.tech-tag').forEach(tag => tag.classList.remove('selected'));
 
         this.loadJobs();
@@ -187,6 +203,7 @@ class JobsPage {
 
             if (this.filters.search) params.append('search', this.filters.search);
             if (this.filters.company) params.append('company', this.filters.company);
+            if (this.filters.location && this.filters.location !== 'all') params.append('location', this.filters.location);
             
             this.filters.technologies.forEach(t => params.append('technologies', t));
             this.filters.seniority.forEach(s => params.append('seniority', s));

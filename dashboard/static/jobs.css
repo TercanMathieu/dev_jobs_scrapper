@@ -200,6 +200,35 @@
 .tag.remote { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
 .checkbox-label input:checked + .tag.remote { background: #2ecc71; color: white; }
 
+/* Location Tag */
+.tag.location { background: rgba(52, 152, 219, 0.2); color: #3498db; }
+.checkbox-label input:checked + .tag.location { background: #3498db; color: white; }
+
+/* Radio Group */
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+    transition: background 0.2s;
+}
+
+.radio-label:hover {
+    background: var(--bg-hover);
+}
+
+.radio-label input[type="radio"] {
+    display: none;
+}
+
 /* Filter Actions */
 .filter-actions {
     display: flex;
