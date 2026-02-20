@@ -1,0 +1,36 @@
+# Fichiers à ignorer par Claude Code
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Logs
+*.log
+logs/
+tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker (fichiers volumineux)
+*.tar
+*.img
+
+# Données (ne pas indexer)
+*.csv
+*.json
+!package.json
+!package-lock.json
