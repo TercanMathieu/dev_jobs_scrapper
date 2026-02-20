@@ -18,10 +18,21 @@ class WTTJ(Website):
             True,
         )
 
-    def _is_valid_company_name(self, text):
+    def _is_valid_company_name(self, text, job_title=None):
         """Check if text is a valid company name (not a phrase or generic text)"""
         if not text or len(text) < 2 or len(text) > 60:
             return False
+        
+        # If we have a job title, make sure the text is not the same or similar
+        if job_title:
+            # Normalize for comparison
+            text_norm = text.lower().strip()
+            title_norm = job_title.lower().strip()
+            if text_norm == title_norm:
+                return False
+            # Also reject if text is contained in job title (common substring)
+            if text_norm in title_norm and len(text_norm) > 8:
+                return False
         
         # List of invalid patterns/phrases that are NOT company names
         invalid_patterns = [
@@ -37,9 +48,28 @@ class WTTJ(Website):
             'france', 'europe',
         ]
         
+        # Job title keywords that should NOT be in company names
+        job_title_keywords = [
+            'développeur', 'developpeur', 'developer', 'dev ',
+            'ingénieur', 'ingenieur', 'engineer',
+            'frontend', 'backend', 'fullstack', 'full-stack',
+            'software', 'web', 'mobile', 'cloud',
+            'data', 'machine learning', 'ia ', 'ai ',
+            'product owner', 'scrum master', 'tech lead',
+            'architect', 'architecte', 'lead ', 'senior', 'junior',
+            'stage', 'alternance', 'apprenti',
+            'h/f', 'f/h', '(h/f)', '(f/h)',
+            'php', 'python', 'javascript', 'react', 'node',
+            'java', 'go ', 'rust', 'ruby', 'scala',
+        ]
+        
         text_lower = text.lower()
         for pattern in invalid_patterns:
             if pattern in text_lower:
+                return False
+        
+        for keyword in job_title_keywords:
+            if keyword in text_lower:
                 return False
         
         # Check if it's all uppercase (often job titles or labels)
@@ -53,14 +83,14 @@ class WTTJ(Website):
         
         return True
 
-    def _extract_company_name(self, job_element):
+    def _extract_company_name(self, job_element, job_title=None):
         """Extract company name with multiple fallback selectors and validation"""
         
         # First try: Look for specific company attributes
         company_elem = job_element.find(attrs={'data-testid': lambda x: x and 'company' in str(x).lower()})
         if company_elem:
             text = company_elem.get_text(strip=True)
-            if self._is_valid_company_name(text):
+            if self._is_valid_company_name(text, job_title):
                 return text
         
         # Second try: Look for aria-label containing company info
@@ -71,7 +101,7 @@ class WTTJ(Website):
                 parts = aria.split('chez') if 'chez' in aria else aria.split('at')
                 if len(parts) > 1:
                     company = parts[-1].strip()
-                    if self._is_valid_company_name(company):
+                    if self._is_valid_company_name(company, job_title):
                         return company
         
         # Third try: Look for specific CSS patterns
@@ -90,21 +120,25 @@ class WTTJ(Website):
                 # - Short (2-40 chars)
                 # - Title case or mixed case (not all caps)
                 # - Not containing job-related keywords
-                if self._is_valid_company_name(text):
+                if self._is_valid_company_name(text, job_title):
                     # Additional check: should be shorter than typical job titles
                     if len(text) < 35 and len(text.split()) <= 5:
                         return text
         
         # Fourth try: Look for any span or div with short text that could be company
+        # This is the fallback - be extra strict here
         for tag in ['span', 'div', 'p']:
             elems = job_element.find_all(tag)
             for elem in elems:
                 text = elem.get_text(strip=True)
                 # Very strict validation for fallback
-                if (2 < len(text) < 30 and 
-                    len(text.split()) <= 4 and
+                # Company names should be SHORT (2-25 chars ideally)
+                # and NOT match job title at all
+                if (2 < len(text) < 25 and 
+                    len(text.split()) <= 3 and
                     text[0].isupper() and
-                    self._is_valid_company_name(text)):
+                    not text.isupper() and  # Not all caps
+                    self._is_valid_company_name(text, job_title)):
                     return text
         
         return "Entreprise non spécifiée"
@@ -184,13 +218,13 @@ class WTTJ(Website):
                 try:
                     print(f"\n--- Job {i+1}/{len(all_jobs_raw)} ---")
                     
-                    # Extract company
-                    job_company = self._extract_company_name(job)
-                    print(f"Company: {job_company}")
-
-                    # Extract job title
+                    # Extract job title FIRST
                     job_name = self._extract_job_title(job)
                     print(f"Job: {job_name}")
+
+                    # Extract company - pass job title to avoid collision
+                    job_company = self._extract_company_name(job, job_title=job_name)
+                    print(f"Company: {job_company}")
 
                     # Extract link
                     job_link = self._extract_job_link(job)
