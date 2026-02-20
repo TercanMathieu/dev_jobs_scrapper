@@ -132,16 +132,25 @@ class Keljob(Website):
             soup = BeautifulSoup(page_data, 'html.parser')
             
             jobs = []
+            # Keljob utilise des classes spécifiques
             for selector in [
-                ('div', {'class': lambda x: x and 'job' in str(x).lower()}),
-                ('article', {}),
-                ('div', {'class': lambda x: x and 'offer' in str(x).lower()}),
-                ('li', {'class': lambda x: x and 'result' in str(x).lower()}),
+                ('div', {'class': lambda x: x and ('job-card' in str(x).lower() or 'card-job' in str(x).lower())}),
+                ('article', {'class': lambda x: x and 'job' in str(x).lower()}),
+                ('div', {'data-testid': 'job-card'}),
+                ('div', {'class': lambda x: x and 'resultat' in str(x).lower()}),
+                ('li', {'class': lambda x: x and 'job' in str(x).lower()}),
             ]:
                 jobs = soup.find_all(*selector)
                 if jobs:
-                    print(f"Found {len(jobs)} jobs")
+                    print(f"Found {len(jobs)} jobs with selector: {selector}")
                     break
+            
+            # Fallback: chercher par structure
+            if not jobs:
+                # Keljob met les offres dans des divs avec des IDs spécifiques ou classes contenant "offre"
+                jobs = soup.find_all('div', {'class': lambda x: x and ('offre' in str(x).lower() or 'annonce' in str(x).lower())})
+                if jobs:
+                    print(f"Found {len(jobs)} jobs with fallback 'offre/annonce' selector")
 
             if not jobs:
                 print("No jobs found")

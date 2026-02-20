@@ -173,28 +173,32 @@ class APEC(Website):
             
             page_soup = BeautifulSoup(page_data, 'html.parser')
             
-            # APEC job cards
+            # APEC job cards - utiliser les vraies classes APEC
             job_listings = []
             
             selectors_to_try = [
-                ('div', {'class': lambda x: x and 'offer-card' in str(x).lower()}),
-                ('div', {'class': lambda x: x and 'card-offer' in str(x).lower()}),
-                ('li', {'class': lambda x: x and 'offer' in str(x).lower()}),
-                ('article', {}),
+                ('div', {'class': lambda x: x and ('card-offer' in str(x).lower() or 'offer-card' in str(x).lower())}),
+                ('article', {'class': lambda x: x and 'offer' in str(x).lower()}),
                 ('div', {'class': lambda x: x and 'resultat' in str(x).lower()}),
+                ('div', {'data-offer-id': True}),  # APEC met parfois l'ID de l'offre en data attribute
+                ('li', {'class': lambda x: x and 'offer' in str(x).lower()}),
             ]
             
             for tag, attrs in selectors_to_try:
                 job_listings = page_soup.find_all(tag, attrs)
                 if job_listings:
-                    print(f"Found {len(job_listings)} jobs with selector: {tag}")
+                    print(f"Found {len(job_listings)} jobs with selector: {tag}, {attrs}")
                     break
             
-            # Alternative: find by links
+            # Alternative: chercher les liens vers les offres
             if not job_listings:
                 job_links = page_soup.find_all('a', href=re.compile(r'/offre-emploi/'))
-                job_listings = [link.find_parent(['div', 'li', 'article']) for link in job_links if link.find_parent()]
-                job_listings = list(set([j for j in job_listings if j]))  # Remove duplicates
+                # Prendre les parents des liens comme conteneurs d'offres
+                job_listings = []
+                for link in job_links:
+                    parent = link.find_parent(['div', 'article', 'li'])
+                    if parent and parent not in job_listings:
+                        job_listings.append(parent)
                 if job_listings:
                     print(f"Found {len(job_listings)} jobs via link search")
             

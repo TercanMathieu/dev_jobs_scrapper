@@ -126,17 +126,31 @@ class LesJeudis(Website):
 
             soup = BeautifulSoup(page_data, 'html.parser')
             
-            # Chercher les offres
+            # LesJeudis utilise des structures spécifiques
             jobs = []
             for selector in [
-                ('div', {'class': lambda x: x and 'job' in str(x).lower()}),
-                ('article', {}),
-                ('li', {'class': lambda x: x and 'result' in str(x).lower()}),
+                ('div', {'class': lambda x: x and ('job-card' in str(x).lower() or 'card' in str(x).lower())}),
+                ('article', {'class': lambda x: x and 'job' in str(x).lower()}),
+                ('div', {'class': lambda x: x and 'result' in str(x).lower()}),
+                ('li', {'class': lambda x: x and 'job' in str(x).lower()}),
+                ('div', {'data-job-id': True}),
             ]:
                 jobs = soup.find_all(*selector)
                 if jobs:
-                    print(f"Found {len(jobs)} jobs")
+                    print(f"Found {len(jobs)} jobs with selector: {selector}")
                     break
+            
+            # Fallback: chercher par liens d'offres
+            if not jobs:
+                job_links = soup.find_all('a', href=re.compile(r'/offre-'))
+                seen_parents = []
+                for link in job_links:
+                    parent = link.find_parent(['div', 'article', 'li'])
+                    if parent and parent not in seen_parents:
+                        seen_parents.append(parent)
+                jobs = seen_parents
+                if jobs:
+                    print(f"Found {len(jobs)} jobs via link search")
 
             if not jobs:
                 print("No jobs found")
