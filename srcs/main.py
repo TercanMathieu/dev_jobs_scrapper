@@ -3,16 +3,27 @@ from time import sleep
 from websites.stationf import StationF
 from websites.wttj import WTTJ
 from websites.jobteaser import JobTeaser
-from websites.indeed import Indeed
-from websites.linkedin import LinkedIn
+# from websites.indeed import Indeed  # Désactivé - risque de blocage IP
+# from websites.linkedin import LinkedIn  # Désactivé - risque de blocage IP
 from websites.apec import APEC
+from websites.lesjeudis import LesJeudis
+from websites.cadremploi import Cadremploi
+from websites.keljob import Keljob
 from common.discord_logger import (
     log_iteration_start, log_scrap_start, 
     log_scrap_end, log_error
 )
 
 SLEEP_TIME = 900
-WEBSITES_TO_SCRAP = [WTTJ(), JobTeaser(), StationF(), Indeed(), LinkedIn(), APEC()]
+WEBSITES_TO_SCRAP = [
+    WTTJ(), 
+    JobTeaser(), 
+    StationF(), 
+    APEC(),
+    LesJeudis(),
+    Cadremploi(),
+    Keljob(),
+]
 
 
 def main():
