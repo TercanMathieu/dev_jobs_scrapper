@@ -3,27 +3,41 @@ from time import sleep
 from websites.stationf import StationF
 from websites.wttj import WTTJ
 from websites.jobteaser import JobTeaser
-# from websites.indeed import Indeed  # Désactivé - risque de blocage IP
-# from websites.linkedin import LinkedIn  # Désactivé - risque de blocage IP
+from websites.indeed import Indeed  # Enabled with proxy
+from websites.linkedin import LinkedIn  # Enabled with proxy
 from websites.apec import APEC
 from websites.lesjeudis import LesJeudis
 from websites.cadremploi import Cadremploi
 from websites.keljob import Keljob
 from common.discord_logger import (
-    log_iteration_start, log_scrap_start, 
+    log_iteration_start, log_scrap_start,
     log_scrap_end, log_error
 )
 
 SLEEP_TIME = 900
 WEBSITES_TO_SCRAP = [
-    WTTJ(), 
-    JobTeaser(), 
-    StationF(), 
+    WTTJ(),
+    JobTeaser(),
+    StationF(),
     APEC(),
     LesJeudis(),
     Cadremploi(),
     Keljob(),
 ]
+
+# Add Indeed and LinkedIn only if proxies are configured
+from common.constants import PROXY_INDEED, PROXY_LINKEDIN
+if PROXY_INDEED:
+    WEBSITES_TO_SCRAP.append(Indeed())
+    print("✅ Indeed enabled with proxy")
+else:
+    print("⚠️  Indeed disabled - no proxy configured (PROXY_INDEED)")
+
+if PROXY_LINKEDIN:
+    WEBSITES_TO_SCRAP.append(LinkedIn())
+    print("✅ LinkedIn enabled with proxy")
+else:
+    print("⚠️  LinkedIn disabled - no proxy configured (PROXY_LINKEDIN)")
 
 
 def main():

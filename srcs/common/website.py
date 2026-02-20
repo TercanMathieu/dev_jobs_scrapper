@@ -4,12 +4,12 @@ from time import sleep
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 
-from common.constants import CHROMEDRIVER_PATH, GOOGLE_CHROME_BIN
+from common.constants import CHROMEDRIVER_PATH, GOOGLE_CHROME_BIN, PROXY_URL
 
 
 class Website:
 
-    def __init__(self, name, url, discord_username, discord_avatar_url, should_scroll_page):
+    def __init__(self, name, url, discord_username, discord_avatar_url, should_scroll_page, proxy_url=None):
         self.name = name
         self.url = url
         self.discord_username = discord_username
@@ -17,13 +17,11 @@ class Website:
         self.should_scroll_page = should_scroll_page
         self.driver = None
         self.extra_chrome_options = []
+        self.proxy_url = proxy_url or PROXY_URL  # Use provided proxy or global
     
     def _get_Driver(self):
         return self.driver
     
-        """
-        Open the given url and returns the data on the page.
-        """
     def _init_driver(self, url):
         service = Service(executable_path=CHROMEDRIVER_PATH) if CHROMEDRIVER_PATH else Service()
         options = Options()
@@ -42,6 +40,11 @@ class Website:
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        
+        # Add proxy if configured
+        if self.proxy_url:
+            print(f"Using proxy: {self.proxy_url.split('@')[-1]}")  # Hide credentials in logs
+            options.add_argument(f'--proxy-server={self.proxy_url}')
         
         # Add any extra options from subclasses
         for opt in self.extra_chrome_options:

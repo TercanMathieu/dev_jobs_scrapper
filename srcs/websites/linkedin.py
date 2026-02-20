@@ -5,10 +5,11 @@ from bs4 import BeautifulSoup
 from common.webhook import create_embed, send_embed
 from common.database import is_url_in_database, add_url_in_database
 from common.website import Website
+from common.constants import PROXY_LINKEDIN
 
 
 class LinkedIn(Website):
-    """Scraper for LinkedIn Jobs - Note: LinkedIn requires login for most content"""
+    """Scraper for LinkedIn Jobs - Uses proxy to avoid IP blocking"""
 
     def __init__(self):
         super().__init__(
@@ -17,6 +18,7 @@ class LinkedIn(Website):
             'LINKEDIN JOBS',
             'https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Logo.svg.original.svg',
             True,
+            proxy_url=PROXY_LINKEDIN  # Use dedicated proxy for LinkedIn
         )
         # Add extra Chrome options
         self.extra_chrome_options = [

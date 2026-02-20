@@ -5,10 +5,11 @@ from bs4 import BeautifulSoup
 from common.webhook import create_embed, send_embed
 from common.database import is_url_in_database, add_url_in_database
 from common.website import Website
+from common.constants import PROXY_INDEED
 
 
 class Indeed(Website):
-    """Scraper for Indeed France - Note: Indeed has strong bot detection"""
+    """Scraper for Indeed France - Uses proxy to avoid IP blocking"""
 
     def __init__(self):
         super().__init__(
@@ -17,6 +18,7 @@ class Indeed(Website):
             'INDEED JOBS',
             'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Indeed_logo.svg/1200px-Indeed_logo.svg.png',
             True,
+            proxy_url=PROXY_INDEED  # Use dedicated proxy for Indeed
         )
         # Add extra Chrome options to avoid bot detection
         self.extra_chrome_options = [
