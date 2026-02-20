@@ -272,8 +272,15 @@ def get_jobs():
     # Location filter (paris or all)
     location = request.args.get('location', 'all')
     if location == 'paris':
-        # Match Paris and Ile-de-France locations
-        query['location'] = {'$regex': 'paris|île-de-france|idf|75|77|78|91|92|93|94|95', '$options': 'i'}
+        # Match Paris and Ile-de-France locations (case-insensitive)
+        # Using $or with multiple regex patterns for better matching
+        query['$or'] = [
+            {'location': {'$regex': 'paris', '$options': 'i'}},
+            {'location': {'$regex': 'île-de-france|ile-de-france|idf', '$options': 'i'}},
+            {'location': {'$regex': 'hauts-de-seine|seine-saint-denis|val-de-marne|essonne|yvelines|val-d\'oise|seine-et-marne', '$options': 'i'}},
+            {'location': {'$regex': '\(75\)|\(77\)|\(78\)|\(91\)|\(92\)|\(93\)|\(94\)|\(95\)', '$options': 'i'}},
+            {'location': {'$regex': ',?\\s*75[0-9]{3}|,?\\s*77[0-9]{3}|,?\\s*78[0-9]{3}|,?\\s*91[0-9]{3}|,?\\s*92[0-9]{3}|,?\\s*93[0-9]{3}|,?\\s*94[0-9]{3}|,?\\s*95[0-9]{3}', '$options': 'i'}},
+        ]
     # if 'all', don't add location filter (show all France)
     
     # Remote days filter (1, 2, 3, 4, 'full', 'hybrid')

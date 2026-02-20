@@ -390,6 +390,37 @@ def analyze_job_page(url, basic_info=None):
     elif any(x in text_lower for x in ['alternance', 'apprenticeship']):
         contract_type = 'apprenticeship'
     
+    # Extraire le thumbnail/logo si pas déjà présent
+    thumbnail = basic_info.get('thumbnail', '') if basic_info else ''
+    if not thumbnail:
+        # Try to find company logo image
+        # LinkedIn specific selectors
+        img_selectors = [
+            ('img', {'class': lambda x: x and 'company' in str(x).lower() and 'logo' in str(x).lower()}),
+            ('img', {'data-test-id': 'company-logo'}),
+            ('img', {'src': lambda x: x and 'company-logo' in str(x)}),
+            ('img', {'alt': lambda x: x and 'logo' in str(x).lower()}),
+        ]
+        
+        for tag, attrs in img_selectors:
+            img = soup.find(tag, attrs)
+            if img and img.get('src'):
+                thumbnail = img['src']
+                break
+        
+        # If still no thumbnail, try to find any image with company name
+        if not thumbnail and company_name and company_name != "Entreprise non spécifiée":
+            for img in soup.find_all('img'):
+                alt = img.get('alt', '')
+                if company_name.lower() in alt.lower() or 'logo' in alt.lower():
+                    if img.get('src'):
+                        thumbnail = img['src']
+                        break
+    
+    # Make sure thumbnail is absolute URL
+    if thumbnail and thumbnail.startswith('/'):
+        thumbnail = urljoin(url, thumbnail)
+    
     # Remote avec nombre de jours
     remote_days = extract_remote_days(text)
     remote = remote_days is not None
@@ -399,7 +430,7 @@ def analyze_job_page(url, basic_info=None):
         'name': basic_info.get('name', '') if basic_info else '',
         'company': company_name,
         'location': basic_info.get('location', 'Paris') if basic_info else 'Paris',
-        'thumbnail': basic_info.get('thumbnail', '') if basic_info else '',
+        'thumbnail': thumbnail,
         'technologies': technologies,
         'seniority': seniority,
         'years_experience': years_exp,

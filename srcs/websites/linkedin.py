@@ -134,6 +134,32 @@ class LinkedIn(Website):
                 return href
         return None
 
+    def _extract_thumbnail(self, job_element):
+        """Extract company logo/thumbnail from LinkedIn job element"""
+        # LinkedIn company logos are typically in img tags
+        img_selectors = [
+            ('img', {'class': lambda x: x and 'company' in str(x).lower() and 'logo' in str(x).lower()}),
+            ('img', {'class': lambda x: x and 'entity-image' in str(x)}),
+            ('img', {'class': lambda x: x and 'artdeco-entity-image' in str(x)}),
+            ('img', {'src': lambda x: x and 'company-logo' in str(x)}),
+        ]
+        
+        for tag, attrs in img_selectors:
+            img = job_element.find(tag, attrs)
+            if img and img.get('src'):
+                src = img['src']
+                # LinkedIn logos often have different sizes, get the best one
+                if 'shrink' in src or 'logo' in src.lower():
+                    return src
+        
+        # Try data-src lazy loaded images
+        for img in job_element.find_all('img'):
+            src = img.get('data-src') or img.get('src', '')
+            if src and ('company' in src.lower() or 'logo' in src.lower()):
+                return src
+        
+        return ''
+
     def scrap(self):
         page = 0
         jobs_found_this_run = 0
@@ -225,6 +251,11 @@ class LinkedIn(Website):
                         continue
                     print(f"Link: {job_link}")
                     
+                    # Extract thumbnail
+                    job_thumbnail = self._extract_thumbnail(job)
+                    if job_thumbnail:
+                        print(f"Thumbnail: {job_thumbnail[:80]}...")
+                    
                     # Check database
                     if not is_url_in_database(job_link):
                         print("✓ New job!")
@@ -232,9 +263,9 @@ class LinkedIn(Website):
                         
                         description = f"{job_name} - {job_company} - {job_location}"
                         
-                        embed = create_embed(job_name, job_company, job_location, job_link, '')
+                        embed = create_embed(job_name, job_company, job_location, job_link, job_thumbnail)
                         
-                        success = send_embed(embed, self, job_name, job_company, job_location, job_link, '', description)
+                        success = send_embed(embed, self, job_name, job_company, job_location, job_link, job_thumbnail, description)
                         
                         if success:
                             jobs_found_this_run += 1
