@@ -70,83 +70,108 @@ class WTTJ(Website):
         return page_data
 
     def _extract_job_title(self, job_element):
-        """Extract job title from h2 in the job link"""
-        link = job_element.find('a', href=re.compile(r'/fr/companies/.+/jobs/'))
-        if link:
-            h2 = link.find('h2')
-            if h2:
-                return h2.get_text(strip=True)
-            # Fallback: text of the link itself
-            text = link.get_text(strip=True)
-            if text and len(text) > 5:
+        """Extract job title - h2 anywhere in the job card"""
+        # Method 1: any h2 in the job card (the title is always in h2)
+        h2 = job_element.find('h2')
+        if h2:
+            text = h2.get_text(strip=True)
+            if text and len(text) > 3:
                 return text
+
+        # Method 2: aria-label on the job link (contains title)
+        for link in job_element.find_all('a', href=re.compile(r'/fr/companies/.+/jobs/')):
+            aria = link.get('aria-label', '')
+            if aria and 'offre' in aria.lower():
+                # "Consultez l'offre Front-End Developer Senior" → extract after "offre"
+                match = re.search(r"(?:l'offre|l\u0027offre)\s+(.+)", aria, re.IGNORECASE)
+                if match:
+                    return match.group(1).strip()
+
+        # Method 3: last resort - any significant text in job links
+        for link in job_element.find_all('a', href=re.compile(r'/fr/companies/.+/jobs/')):
+            text = link.get_text(strip=True)
+            if text and len(text) > 5 and len(text) < 120:
+                return text
+
         return "Unknown Position"
 
     def _extract_company_name(self, job_element):
-        """Extract company name - try logo alt first, then span text"""
-        # Method 1: logo image alt text (data-testid pattern)
+        """Extract company name - logo alt is the most reliable"""
+        # Method 1: logo image alt (always contains company name)
         logo_img = job_element.find('img', {'data-testid': re.compile(r'job-thumb-logo-')})
         if logo_img and logo_img.get('alt'):
             alt = logo_img['alt'].strip()
-            if alt and len(alt) > 1 and alt.lower() not in ['logo', 'image']:
+            if alt and len(alt) > 1 and alt.lower() not in ['logo', 'image', 'cover']:
                 return alt
 
-        # Method 2: find span with company name (usually near logo)
+        # Method 2: find the span that is a sibling of the logo container
         logo_container = job_element.find('div', {'data-testid': re.compile(r'job-thumb-logo-')})
         if logo_container:
-            parent = logo_container.find_parent('div')
+            # The company name span is typically the next sibling in the parent
+            parent = logo_container.find_parent()
             if parent:
                 for span in parent.find_all('span', {'class': re.compile(r'wui-text')}):
                     text = span.get_text(strip=True)
-                    if text and 2 < len(text) < 50 and not any(kw in text.lower() for kw in ['développeur', 'developer', 'engineer']):
+                    if (text and 2 < len(text) < 50 and
+                        text[0].isupper() and
+                        not any(kw in text.lower() for kw in ['développeur', 'developer', 'engineer', 'software'])):
                         return text
 
-        # Method 3: any span that looks like a company name
+        # Method 3: any span that looks like a company name (capitalized, short)
         for span in job_element.find_all('span', {'class': re.compile(r'wui-text')}):
             text = span.get_text(strip=True)
-            if (2 < len(text) < 50 and
+            if (2 < len(text) < 45 and
                 text[0].isupper() and
-                not any(kw in text.lower() for kw in ['développeur', 'developer', 'engineer', 'cdi', 'cdd', 'stage', 'alternance'])):
+                not any(kw in text.lower() for kw in ['développeur', 'developer', 'engineer', 'software', 'cdi', 'cdd', 'stage', 'alternance', 'salaire', 'télétravail', 'remote'])):
                 return text
 
         return "Entreprise non spécifiée"
 
     def _extract_job_link(self, job_element):
-        """Extract full job URL"""
-        link = job_element.find('a', href=re.compile(r'/fr/companies/.+/jobs/'))
-        if link and link.get('href'):
-            href = link['href']
-            if href.startswith('http'):
-                return href
-            return 'https://www.welcometothejungle.com' + href
+        """Extract full job URL - use the first job link"""
+        for link in job_element.find_all('a', href=re.compile(r'/fr/companies/.+/jobs/')):
+            href = link.get('href', '')
+            if href:
+                if href.startswith('http'):
+                    return href
+                return 'https://www.welcometothejungle.com' + href
         return None
 
     def _extract_location(self, job_element):
         """Extract location from the job card"""
-        # Look for span with location class pattern
+        # Method 1: span with the specific location class
         for span in job_element.find_all('span', {'class': re.compile(r'ldnNiw')}):
             text = span.get_text(strip=True)
-            if text and len(text) > 1:
+            if text and len(text) > 1 and len(text) < 50:
                 return text
 
-        # Fallback: look for text after location icon
-        for elem in job_element.find_all(['span', 'div']):
-            text = elem.get_text(strip=True)
-            if re.search(r'(Paris|Lyon|Bordeaux|Marseille|Nantes|Toulouse|Lille|Remote|Télétravail)', text, re.IGNORECASE):
-                match = re.search(r'(Paris|Lyon|Bordeaux|Marseille|Nantes|Toulouse|Lille|Remote|Télétravail)[^,]*', text, re.IGNORECASE)
-                if match:
-                    return match.group(0)
+        # Method 2: look in the job text for city names
+        full_text = job_element.get_text(strip=True)
+        cities = ['Paris', 'Lyon', 'Bordeaux', 'Marseille', 'Nantes', 'Toulouse', 'Lille', 'Strasbourg', 'Nice', 'Grenoble', 'Rennes', 'Montpellier']
+        for city in cities:
+            if city in full_text:
+                return city
+
+        # Method 3: remote patterns
+        if 'télétravail' in full_text.lower() or 'remote' in full_text.lower():
+            if 'télétravail total' in full_text.lower():
+                return "Télétravail total"
+            elif 'télétravail fréquent' in full_text.lower():
+                return "Télétravail fréquent"
+            elif 'télétravail occasionnel' in full_text.lower():
+                return "Télétravail occasionnel"
+            return "Télétravail"
+
         return "Paris"
 
     def _extract_contract(self, job_element):
         """Extract contract type (CDI, CDD, Stage, etc.)"""
-        # Look for text near contract icon
-        contract_patterns = ['CDI', 'CDD', 'Stage', 'Alternance', 'Freelance', 'Apprentissage', 'Temps plein']
-        for elem in job_element.find_all(['span', 'div']):
-            text = elem.get_text(strip=True)
-            for pattern in contract_patterns:
-                if pattern in text:
-                    return pattern
+        # Look for text in the whole job element
+        full_text = job_element.get_text(strip=True)
+        contract_patterns = ['CDI', 'CDD', 'Stage', 'Alternance', 'Freelance', 'Apprentissage']
+        for pattern in contract_patterns:
+            if pattern in full_text:
+                return pattern
         return "CDI"
 
     def _extract_thumbnail(self, job_element):
