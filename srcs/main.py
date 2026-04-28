@@ -10,15 +10,15 @@ from websites.lesjeudis import LesJeudis
 from websites.cadremploi import Cadremploi
 from websites.keljob import Keljob
 from common.discord_logger import (
-    log_iteration_start, log_scrap_start, 
+    log_iteration_start, log_scrap_start,
     log_scrap_end, log_error
 )
 
 SLEEP_TIME = 900
 WEBSITES_TO_SCRAP = [
-    WTTJ(), 
-    JobTeaser(), 
-    StationF(), 
+    WTTJ(),
+    JobTeaser(),
+    StationF(),
     APEC(),
     LesJeudis(),
     Cadremploi(),
@@ -34,12 +34,13 @@ def main():
     """
 
     print("Starting Developer Job Scrapper..")
+    print(f"Websites configured: {[w.name for w in WEBSITES_TO_SCRAP]}")
 
     while True:
 
         print("Running another iteration..")
         log_iteration_start()
-        
+
         for website in WEBSITES_TO_SCRAP:
             try:
                 log_scrap_start(website.name)
@@ -52,7 +53,10 @@ def main():
                 log_error(website.name, error_msg)
                 print("Unable to scrap {}:".format(website.name))
                 print(e)
+                import traceback
+                traceback.print_exc()
 
+        print(f"Iteration complete. Sleeping for {SLEEP_TIME} seconds...")
         sleep(SLEEP_TIME)
 
 

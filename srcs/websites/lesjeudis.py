@@ -157,23 +157,6 @@ class LesJeudis(Website):
             return img.get('src', '')
         return ''
 
-    def _init_driver(self, url):
-        """Override pour ajouter des scripts anti-détection"""
-        super()._init_driver(url)
-        
-        # Exécuter script pour masquer Selenium
-        self.driver.execute_script("""
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [1, 2, 3, 4, 5]
-            });
-            window.chrome = { runtime: {} };
-        """)
-        
-        time.sleep(3)  # Attendre que Cloudflare valide
-
     def scrap(self):
         page = 1
         jobs_found = 0
